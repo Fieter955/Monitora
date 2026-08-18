@@ -1,0 +1,11 @@
+# Safe defaults for the initial deployment. Full SNMP polling stays at five
+# minutes until the pilot proves every device can complete a one-minute cycle.
+schedule_type.poller: dispatcher
+schedule_type.discovery: dispatcher
+schedule_type.alerting: dispatcher
+schedule_type.ping: dispatcher
+service_ping_frequency: 60
+service_poller_frequency: 300
+service_discovery_frequency: 900
+rrd.step: 300
+rrd.heartbeat: 600

@@ -1,0 +1,16 @@
+.env
+.next/
+node_modules/
+coverage/
+dist/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+*.db
+*.sqlite3
+backups/
+secrets/*
+!secrets/.gitkeep
+

@@ -1,0 +1,110 @@
+groups:
+  - name: infrastructure
+    rules:
+      - alert: TargetTidakTerjangkau
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.instance }} tidak dapat dijangkau"
+          description: "Prometheus gagal mengambil metrik selama lebih dari 2 menit."
+
+      - alert: PenggunaanCPUtinggi
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU {{ $labels.instance }} berada di atas 85%"
+          description: "Periksa proses aktif sebelum kapasitas layanan terganggu."
+
+      - alert: PenggunaanMemoriTinggi
+        expr: 100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 90
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Memori {{ $labels.instance }} berada di atas 90%"
+          description: "Ketersediaan memori rendah selama lebih dari 10 menit."
+
+      - alert: RuangDiskMenipis
+        expr: min by(instance) (100 * node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) < 10
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Sisa disk {{ $labels.instance }} kurang dari 10%"
+          description: "Filesystem perlu dibersihkan atau ditambah kapasitas."
+
+      - alert: WebsiteTidakTersedia
+        expr: probe_success{job="blackbox"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Layanan {{ $labels.instance }} tidak tersedia"
+          description: "Pemeriksaan HTTP gagal selama lebih dari 2 menit."
+
+      - alert: PerangkatLANOffline
+        expr: probe_success{job="icmp"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.instance }} tidak menjawab ping"
+          description: "Perangkat LAN tidak dapat dijangkau dari server monitoring."
+
+      - alert: SertifikatSegeraBerakhir
+        expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 14
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sertifikat {{ $labels.instance }} berakhir kurang dari 14 hari"
+          description: "Jadwalkan pembaruan sertifikat TLS."
+
+      - alert: PortWajibTerputus
+        expr: pantau_device_issue{issue="required_port_down"} == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Port wajib pada {{ $labels.device_name }} terputus"
+          description: "Periksa kabel, daya, dan perangkat yang seharusnya terhubung."
+
+      - alert: PerangkatAsingTerdeteksi
+        expr: pantau_device_issue{issue="unexpected_port_active"} == 1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Port cadangan {{ $labels.device_name }} tiba-tiba aktif"
+          description: "Konfirmasikan perangkat baru sebelum menjadikannya koneksi resmi."
+
+      - alert: StreamCCTVTerputus
+        expr: pantau_device_issue{issue="cctv_stream_down"} == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Stream CCTV {{ $labels.device_name }} tidak tersedia"
+          description: "Kamera mungkin terjangkau tetapi handshake RTSP gagal."
+
+      - alert: DataJaringanTerlambat
+        expr: pantau_device_issue{issue=~"monitoring_data_stale|monitoring_unavailable"} == 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Data {{ $labels.device_name }} tidak diperbarui"
+          description: "Periksa worker sinkronisasi dan koneksi ke LibreNMS."
+
+      - alert: PerangkatJaringanTidakTerjangkau
+        expr: pantau_device_issue{issue="network_device_down"} == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.device_name }} tidak terjangkau"
+          description: "Periksa daya, uplink, dan jalur menuju perangkat."

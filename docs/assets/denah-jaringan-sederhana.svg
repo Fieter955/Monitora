@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="960" viewBox="0 0 1600 960" role="img" aria-labelledby="title description">
+  <title id="title">Denah jaringan sederhana dengan router, hub, access point, server, dan komputer</title>
+  <desc id="description">Router 192.168.1.1 terhubung ke hub unmanaged. Hub terhubung ke server monitoring 192.168.1.10, Komputer 2 192.168.1.20, dan access point 192.168.1.2.</desc>
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f6fafc"/>
+      <stop offset="1" stop-color="#e9f1f5"/>
+    </linearGradient>
+    <linearGradient id="navy" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#123b55"/>
+      <stop offset="1" stop-color="#09253a"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2b8cc9"/>
+      <stop offset="1" stop-color="#17659d"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="8" stdDeviation="9" flood-color="#173b50" flood-opacity=".14"/>
+    </filter>
+    <filter id="smallShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#173b50" flood-opacity=".12"/>
+    </filter>
+    <pattern id="dots" width="32" height="32" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.4" fill="#b7cbd6"/>
+    </pattern>
+    <style>
+      .font { font-family: "Segoe UI", Arial, sans-serif; fill: #09253a; }
+      .eyebrow { font-size: 17px; font-weight: 800; letter-spacing: 2.6px; fill: #2879a9; }
+      .title { font-size: 40px; font-weight: 800; letter-spacing: -.5px; }
+      .subtitle { font-size: 19px; fill: #527084; }
+      .node-title { font-size: 25px; font-weight: 800; }
+      .node-kind { font-size: 15px; font-weight: 700; letter-spacing: 1.3px; fill: #577285; }
+      .node-ip { font-size: 19px; font-weight: 700; fill: #17659d; }
+      .node-note { font-size: 15px; fill: #5a7282; }
+      .port-label { font-size: 14px; font-weight: 700; fill: #527084; }
+      .footer-title { font-size: 15px; font-weight: 800; letter-spacing: 1px; fill: #527084; }
+      .footer-copy { font-size: 17px; fill: #09253a; }
+      .pill { font-size: 14px; font-weight: 800; letter-spacing: .7px; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="960" fill="url(#page)"/>
+  <rect x="44" y="42" width="1512" height="876" rx="26" fill="#ffffff" filter="url(#shadow)"/>
+  <rect x="44" y="42" width="1512" height="876" rx="26" fill="none" stroke="#d4e2e9" stroke-width="2"/>
+
+  <text x="94" y="104" class="font eyebrow">SIMULASI • LAN 192.168.1.0/24</text>
+  <text x="94" y="154" class="font title">Denah Jaringan Sederhana</text>
+  <text x="94" y="188" class="font subtitle">Komputer 1 menjadi server untuk memeriksa perangkat pada jaringan lokal.</text>
+  <rect x="1228" y="92" width="250" height="44" rx="22" fill="#e8f5fb" stroke="#b9dceb"/>
+  <circle cx="1254" cy="114" r="7" fill="#258c69"/>
+  <text x="1274" y="120" class="font pill" fill="#176345">MONITORING AKTIF</text>
+
+  <rect x="76" y="224" width="1468" height="500" rx="20" fill="#f7fafb" stroke="#dce8ed"/>
+  <rect x="76" y="224" width="1468" height="500" rx="20" fill="url(#dots)" opacity=".48"/>
+
+  <!-- Cable paths: all physical links pass through the hub. -->
+  <path d="M 396 430 H 600" fill="none" stroke="#2879a9" stroke-width="8" stroke-linecap="round"/>
+  <path d="M 900 430 C 984 430 1000 225 1120 225" fill="none" stroke="#2879a9" stroke-width="8" stroke-linecap="round"/>
+  <path d="M 900 430 H 1120" fill="none" stroke="#2879a9" stroke-width="8" stroke-linecap="round"/>
+  <path d="M 900 430 C 984 430 1000 655 1120 655" fill="none" stroke="#2879a9" stroke-width="8" stroke-linecap="round"/>
+
+  <g class="font">
+    <rect x="454" y="397" width="92" height="28" rx="14" fill="#ffffff" stroke="#cbdde6"/>
+    <text x="500" y="416" text-anchor="middle" class="port-label">LAN 1</text>
+    <rect x="986" y="276" width="86" height="28" rx="14" fill="#ffffff" stroke="#cbdde6"/>
+    <text x="1029" y="295" text-anchor="middle" class="port-label">Port 2</text>
+    <rect x="982" y="397" width="86" height="28" rx="14" fill="#ffffff" stroke="#cbdde6"/>
+    <text x="1025" y="416" text-anchor="middle" class="port-label">Port 3</text>
+    <rect x="986" y="555" width="86" height="28" rx="14" fill="#ffffff" stroke="#cbdde6"/>
+    <text x="1029" y="574" text-anchor="middle" class="port-label">Port 4</text>
+  </g>
+
+  <!-- Router -->
+  <g filter="url(#smallShadow)">
+    <rect x="100" y="350" width="296" height="160" rx="16" fill="#ffffff" stroke="#17659d" stroke-width="3"/>
+    <rect x="100" y="350" width="86" height="160" rx="16" fill="url(#blue)"/>
+    <path d="M 128 428 H 158 M 143 413 V 443" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+    <path d="M 121 465 C 133 453 153 453 165 465" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+    <circle cx="143" cy="467" r="3" fill="#ffffff"/>
+    <text x="207" y="392" class="font node-kind">GATEWAY</text>
+    <text x="207" y="426" class="font node-title">Router Utama</text>
+    <text x="207" y="458" class="font node-ip">192.168.1.1</text>
+    <text x="207" y="486" class="font node-note">Gateway LAN</text>
+  </g>
+
+  <!-- Hub -->
+  <g filter="url(#smallShadow)">
+    <rect x="600" y="350" width="300" height="160" rx="16" fill="#ffffff" stroke="#c37816" stroke-width="3"/>
+    <rect x="600" y="350" width="86" height="160" rx="16" fill="#c37816"/>
+    <rect x="620" y="401" width="46" height="36" rx="5" fill="none" stroke="#ffffff" stroke-width="4"/>
+    <circle cx="629" cy="420" r="3" fill="#ffffff"/><circle cx="640" cy="420" r="3" fill="#ffffff"/><circle cx="651" cy="420" r="3" fill="#ffffff"/>
+    <path d="M 628 453 H 658" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+    <text x="707" y="392" class="font node-kind">UNMANAGED</text>
+    <text x="707" y="426" class="font node-title">Hub Utama</text>
+    <text x="707" y="458" class="font node-ip" fill="#9a5b08">Tidak ada IP</text>
+    <text x="707" y="486" class="font node-note">Monitoring terbatas</text>
+  </g>
+
+  <!-- Server -->
+  <g filter="url(#smallShadow)">
+    <rect x="1120" y="150" width="350" height="150" rx="16" fill="#ffffff" stroke="#258c69" stroke-width="3"/>
+    <rect x="1120" y="150" width="86" height="150" rx="16" fill="#258c69"/>
+    <rect x="1141" y="190" width="44" height="58" rx="5" fill="none" stroke="#ffffff" stroke-width="4"/>
+    <path d="M 1151 207 H 1175 M 1151 222 H 1175 M 1151 237 H 1175" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="1150" cy="265" r="3" fill="#ffffff"/><circle cx="1161" cy="265" r="3" fill="#ffffff"/>
+    <text x="1230" y="186" class="font node-kind">KOMPUTER 1 • SERVER</text>
+    <text x="1230" y="222" class="font node-title">Server Monitoring</text>
+    <text x="1230" y="254" class="font node-ip">192.168.1.10</text>
+    <text x="1230" y="280" class="font node-note">Ping, ICMP, dan dashboard</text>
+  </g>
+
+  <!-- Client computer -->
+  <g filter="url(#smallShadow)">
+    <rect x="1120" y="365" width="350" height="150" rx="16" fill="#ffffff" stroke="#17659d" stroke-width="3"/>
+    <rect x="1120" y="365" width="86" height="150" rx="16" fill="#17659d"/>
+    <rect x="1140" y="400" width="47" height="36" rx="4" fill="none" stroke="#ffffff" stroke-width="4"/>
+    <path d="M 1134 454 H 1193 M 1156 436 V 454 M 1148 463 H 1179" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+    <text x="1230" y="401" class="font node-kind">KOMPUTER 2 • CLIENT</text>
+    <text x="1230" y="437" class="font node-title">Komputer 2</text>
+    <text x="1230" y="469" class="font node-ip">192.168.1.20</text>
+    <text x="1230" y="495" class="font node-note">Diperiksa dari server</text>
+  </g>
+
+  <!-- Access point -->
+  <g filter="url(#smallShadow)">
+    <rect x="1120" y="580" width="350" height="150" rx="16" fill="#ffffff" stroke="#17659d" stroke-width="3"/>
+    <rect x="1120" y="580" width="86" height="150" rx="16" fill="url(#blue)"/>
+    <circle cx="1163" cy="650" r="7" fill="#ffffff"/>
+    <path d="M 1144 649 C 1154 638 1172 638 1182 649 M 1135 636 C 1151 619 1175 619 1191 636" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+    <text x="1230" y="616" class="font node-kind">AKSES NIRKABEL</text>
+    <text x="1230" y="652" class="font node-title">Access Point</text>
+    <text x="1230" y="684" class="font node-ip">192.168.1.2</text>
+    <text x="1230" y="710" class="font node-note">Wi-Fi untuk perangkat tambahan</text>
+  </g>
+
+  <rect x="76" y="754" width="1468" height="122" rx="16" fill="#f7fafb" stroke="#dce8ed"/>
+  <circle cx="116" cy="797" r="7" fill="#2879a9"/>
+  <text x="138" y="803" class="font footer-title">KABEL LAN</text>
+  <text x="138" y="832" class="font footer-copy">Semua perangkat terhubung melalui hub.</text>
+  <line x1="565" y1="776" x2="565" y2="854" stroke="#d4e2e9" stroke-width="2"/>
+  <circle cx="617" cy="797" r="7" fill="#258c69"/>
+  <text x="639" y="803" class="font footer-title">SERVER MONITORING</text>
+  <text x="639" y="832" class="font footer-copy">Memeriksa router, AP, dan Komputer 2.</text>
+  <line x1="1053" y1="776" x2="1053" y2="854" stroke="#d4e2e9" stroke-width="2"/>
+  <circle cx="1105" cy="797" r="7" fill="#c37816"/>
+  <text x="1127" y="803" class="font footer-title">CATATAN HUB</text>
+  <text x="1127" y="832" class="font footer-copy">Hub tidak punya IP; status port terbatas.</text>
+</svg>

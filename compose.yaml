@@ -1,0 +1,314 @@
+name: pantau-infrastruktur
+
+services:
+  gateway:
+    image: nginx:1.28-alpine
+    restart: unless-stopped
+    ports:
+      - "${BIND_ADDRESS:-0.0.0.0}:${HTTP_PORT:-8080}:80"
+    volumes:
+      - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+      grafana:
+        condition: service_healthy
+    networks: [edge, internal]
+
+  frontend:
+    build:
+      context: ./frontend
+      target: runner
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-Pantau Infrastruktur}
+    expose: ["3000"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/login"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks: [internal]
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      APP_NAME: ${APP_NAME:-Pantau Infrastruktur}
+      APP_ENV: ${APP_ENV:-development}
+      APP_SECRET_KEY: ${APP_SECRET_KEY:-development-secret-change-before-production}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-480}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend,gateway}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin12345}
+      ADMIN_FULL_NAME: ${ADMIN_FULL_NAME:-Administrator Infrastruktur}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://monitoring:monitoring@db:5432/monitoring}
+      PROMETHEUS_URL: ${PROMETHEUS_URL:-http://prometheus:9090}
+      LIBRENMS_URL: ${LIBRENMS_URL:-http://librenms:8000}
+      LIBRENMS_API_TOKEN: ${LIBRENMS_API_TOKEN:-}
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-development-credential-key-change-me}
+      NETWORK_SYNC_INTERVAL_SECONDS: ${NETWORK_SYNC_INTERVAL_SECONDS:-60}
+      NETWORK_STALE_AFTER_SECONDS: ${NETWORK_STALE_AFTER_SECONDS:-180}
+    expose: ["8000"]
+    depends_on:
+      db:
+        condition: service_healthy
+      prometheus:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    networks: [internal, egress]
+
+  network-worker:
+    build: ./backend
+    restart: unless-stopped
+    command: ["python", "-m", "app.network_worker"]
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      APP_SECRET_KEY: ${APP_SECRET_KEY:-development-secret-change-before-production}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://monitoring:monitoring@db:5432/monitoring}
+      LIBRENMS_URL: ${LIBRENMS_URL:-http://librenms:8000}
+      LIBRENMS_API_TOKEN: ${LIBRENMS_API_TOKEN:-}
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-development-credential-key-change-me}
+      NETWORK_SYNC_INTERVAL_SECONDS: ${NETWORK_SYNC_INTERVAL_SECONDS:-60}
+      NETWORK_STALE_AFTER_SECONDS: ${NETWORK_STALE_AFTER_SECONDS:-180}
+    depends_on:
+      backend:
+        condition: service_healthy
+      librenms:
+        condition: service_started
+    networks: [internal, egress]
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-monitoring}
+      POSTGRES_USER: ${POSTGRES_USER:-monitoring}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-monitoring}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-monitoring} -d ${POSTGRES_DB:-monitoring}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [internal]
+
+  prometheus:
+    image: quay.io/prometheus/prometheus:v3.11.3
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION_TIME:-30d}
+      - --storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-8GB}
+      - --web.enable-lifecycle
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/rules.yml:/etc/prometheus/rules.yml:ro
+      - prometheus_data:/prometheus
+    expose: ["9090"]
+    networks: [internal, monitoring]
+
+  alertmanager:
+    image: quay.io/prometheus/alertmanager:v0.32.1
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --enable-feature=utf8-strict-mode
+    volumes:
+      - ./infra/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    expose: ["9093"]
+    networks: [monitoring]
+
+  grafana:
+    image: grafana/grafana:13.1.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_SERVER_ROOT_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    expose: ["3000"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks: [internal, monitoring]
+
+  node-exporter:
+    image: quay.io/prometheus/node-exporter:v1.11.1
+    restart: unless-stopped
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    expose: ["9100"]
+    networks: [monitoring]
+
+  blackbox-exporter:
+    image: quay.io/prometheus/blackbox-exporter:v0.28.0
+    restart: unless-stopped
+    command: ["--config.file=/etc/blackbox/blackbox.yml"]
+    cap_add: [NET_RAW]
+    volumes:
+      - ./infra/blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    expose: ["9115"]
+    networks: [monitoring, internal, egress]
+
+  snmp-exporter:
+    image: quay.io/prometheus/snmp-exporter:v0.30.1
+    restart: unless-stopped
+    expose: ["9116"]
+    networks: [monitoring]
+
+  librenms-db:
+    image: mariadb:11.8
+    restart: unless-stopped
+    command:
+      - --innodb-file-per-table=1
+      - --lower-case-table-names=0
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MARIADB_DATABASE: librenms
+      MARIADB_USER: librenms
+      MARIADB_PASSWORD: ${LIBRENMS_DB_PASSWORD:-replace-librenms-database-password}
+      MARIADB_ROOT_PASSWORD: ${LIBRENMS_DB_ROOT_PASSWORD:-replace-librenms-root-password}
+      TZ: ${TZ:-Asia/Makassar}
+    volumes:
+      - librenms_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  librenms-redis:
+    image: redis:8.2-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${LIBRENMS_REDIS_PASSWORD:-replace-librenms-redis-password}"]
+    environment:
+      REDIS_PASSWORD: ${LIBRENMS_REDIS_PASSWORD:-replace-librenms-redis-password}
+    volumes:
+      - librenms_redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  librenms-rrdcached:
+    image: crazymax/rrdcached:1.9.0-r4
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Makassar}
+      PUID: 1000
+      PGID: 1000
+      LOG_LEVEL: LOG_INFO
+      WRITE_TIMEOUT: 1800
+      WRITE_JITTER: 1800
+      WRITE_THREADS: 4
+      FLUSH_DEAD_DATA_INTERVAL: 3600
+    volumes:
+      - librenms_rrd_data:/data/db
+      - librenms_rrd_journal:/data/journal
+    networks: [internal]
+
+  librenms:
+    image: librenms/librenms:26.6.1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${LIBRENMS_ADMIN_PORT:-8001}:8000"
+    environment: &librenms-environment
+      TZ: ${TZ:-Asia/Makassar}
+      PUID: 1000
+      PGID: 1000
+      DB_HOST: librenms-db
+      DB_PORT: 3306
+      DB_NAME: librenms
+      DB_USER: librenms
+      DB_PASSWORD: ${LIBRENMS_DB_PASSWORD:-replace-librenms-database-password}
+      DB_TIMEOUT: 60
+      REDIS_HOST: librenms-redis
+      REDIS_PASSWORD: ${LIBRENMS_REDIS_PASSWORD:-replace-librenms-redis-password}
+      CACHE_DRIVER: redis
+      SESSION_DRIVER: redis
+      RRDCACHED_SERVER: librenms-rrdcached:42217
+    volumes:
+      - librenms_data:/data
+      - ./infra/librenms/pantau.yaml:/data/config/pantau.yaml:ro
+    depends_on:
+      librenms-db:
+        condition: service_healthy
+      librenms-redis:
+        condition: service_healthy
+      librenms-rrdcached:
+        condition: service_started
+    networks: [internal, egress]
+
+  librenms-dispatcher:
+    image: librenms/librenms:26.6.1
+    restart: unless-stopped
+    environment:
+      <<: *librenms-environment
+      SIDECAR_DISPATCHER: 1
+      DISPATCHER_NODE_ID: dispatcher1
+    volumes:
+      - librenms_data:/data
+      - ./infra/librenms/pantau.yaml:/data/config/pantau.yaml:ro
+    depends_on:
+      librenms:
+        condition: service_started
+    networks: [internal, egress]
+
+networks:
+  edge:
+  internal:
+    internal: true
+  monitoring:
+    internal: true
+  egress:
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:
+  librenms_db_data:
+  librenms_redis_data:
+  librenms_rrd_data:
+  librenms_rrd_journal:
+  librenms_data:

@@ -1,0 +1,10 @@
+services:
+  alertmanager:
+    volumes:
+      - ./infra/alertmanager/telegram.yml:/etc/alertmanager/alertmanager.yml:ro
+    secrets:
+      - telegram_bot_token
+
+secrets:
+  telegram_bot_token:
+    file: ./secrets/telegram_bot_token
