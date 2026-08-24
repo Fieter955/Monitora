@@ -35,12 +35,29 @@ export default function FloorplanPage() {
       api<Topology>("/topology"),
       api<User>("/auth/me"),
     ]);
-    setLocations(locationData);
-    setFloorplans(floorplanData);
+    let loadedLocations = locationData;
+    let loadedFloorplans = floorplanData;
+
+    // Inject mock data if the database is completely empty
+    if (loadedLocations.length === 0) {
+      loadedLocations = [
+        { id: 9990, name: "Kampus BBWS Serayu Opak", kind: "site", parent_id: null, sort_order: 1, created_at: "", updated_at: "" },
+        { id: 9991, name: "Balai Teknik Pantai", kind: "building", parent_id: 9990, sort_order: 1, created_at: "", updated_at: "" },
+        { id: 9992, name: "Lantai 1", kind: "floor", parent_id: 9991, sort_order: 1, created_at: "", updated_at: "" },
+        { id: 9993, name: "Ruang Server", kind: "room", parent_id: 9992, sort_order: 1, created_at: "", updated_at: "" },
+        { id: 9994, name: "Ruang Admin", kind: "room", parent_id: 9992, sort_order: 2, created_at: "", updated_at: "" }
+      ];
+      loadedFloorplans = [
+        { id: 9991, location_id: 9992, filename: "denah-ruangan.jpg", content_type: "image/jpeg", image_url: "/denah-ruangan.jpg", updated_at: "" }
+      ];
+    }
+
+    setLocations(loadedLocations);
+    setFloorplans(loadedFloorplans);
     setDevices(deviceData);
     setTopology(topologyData);
     setUser(me);
-    setSelectedLocation((current) => current ?? floorplanData[0]?.location_id ?? locationData.find((item) => item.kind === "floor" || item.kind === "room")?.id ?? null);
+    setSelectedLocation((current) => current ?? loadedFloorplans[0]?.location_id ?? loadedLocations.find((item) => item.kind === "floor" || item.kind === "room")?.id ?? null);
   }, []);
 
   useEffect(() => { const initial = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(initial); }, [load]);
@@ -82,6 +99,31 @@ export default function FloorplanPage() {
       />
 
       {message && <div className="notice" role="status"><span className="notice-mark">i</span><div><strong>Peta diperbarui</strong><p>{message}</p></div></div>}
+
+      <div className="panel" style={{ margin: "20px 32px" }}>
+        <div className="panel-header">
+          <div><h2>Lokasi: Balai Teknik Pantai</h2><p>Peta area dan denah 1 lantai 2 ruangan (Placeholder)</p></div>
+        </div>
+        <div style={{ display: "flex", gap: "20px", padding: "20px" }}>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ marginBottom: "10px", fontSize: "14px", color: "var(--muted)" }}>Peta Geografis</h3>
+            <iframe 
+              src="https://maps.google.com/maps?q=Balai%20Teknik%20Pantai&t=&z=15&ie=UTF8&iwloc=&output=embed" 
+              width="100%" 
+              height="100%" 
+              style={{ aspectRatio: "4/3", border: 0, borderRadius: "8px" }} 
+              allowFullScreen={true} 
+              loading="lazy" 
+              referrerPolicy="no-referrer-when-downgrade"
+              title="Peta Lokasi Balai Teknik Pantai"
+            ></iframe>
+          </div>
+          <div style={{ flex: 1 }}>
+            <h3 style={{ marginBottom: "10px", fontSize: "14px", color: "var(--muted)" }}>Denah 1 Lantai 2 Ruangan</h3>
+            <img src="/denah-ruangan.jpg" alt="Denah Ruangan" style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover", borderRadius: "8px", border: "1px solid var(--border)" }} />
+          </div>
+        </div>
+      </div>
 
       <div className="map-layout">
         <aside className="location-browser panel" aria-label="Daftar lokasi">
