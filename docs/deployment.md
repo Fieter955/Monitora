@@ -33,6 +33,7 @@ Jika website instansi tetap berada di cPanel:
    PUBLIC_BASE_URL=https://monitor.example.go.id
    BIND_ADDRESS=127.0.0.1
    HTTP_PORT=8080
+   NODE_EXPORTER_ROOTFS_MODE=ro,rslave
    ```
 
 6. Jalankan `docker compose up -d --build`.

@@ -23,3 +23,21 @@ def test_invalid_login_is_rejected(client):
 def test_protected_endpoint_requires_session(client):
     response = client.get("/api/v1/devices")
     assert response.status_code == 401
+
+
+def test_internal_admin_authorization_accepts_admin(admin_client):
+    response = admin_client.get("/internal/auth/admin")
+    assert response.status_code == 204
+    assert response.content == b""
+
+
+def test_internal_admin_authorization_rejects_viewer(viewer_client):
+    response = viewer_client.get("/internal/auth/admin")
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Akses administrator diperlukan"
+
+
+def test_internal_admin_authorization_requires_session(client):
+    response = client.get("/internal/auth/admin")
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Sesi tidak valid"

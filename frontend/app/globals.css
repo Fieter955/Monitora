@@ -93,25 +93,7 @@ a { color: inherit; }
   padding: 0 22px;
   border-bottom: 1px solid rgba(255,255,255,.1);
 }
-.brand-mark {
-  position: relative;
-  width: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  border: 2px solid #68b7e5;
-  border-radius: 50%;
-}
-.brand-mark::before, .brand-mark span {
-  content: "";
-  position: absolute;
-  width: 17px;
-  height: 7px;
-  border-bottom: 2px solid #68b7e5;
-  border-radius: 50%;
-  transform: translateY(-2px);
-}
-.brand-mark span { transform: translateY(4px); width: 12px; }
+.brand-logo { width: 38px; height: 38px; flex: 0 0 auto; object-fit: contain; }
 .brand strong { display: block; color: #fff; font-size: 18px; letter-spacing: -.2px; line-height: 1.15; }
 .brand small { display: block; color: #9db5c6; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; margin-top: 3px; }
 

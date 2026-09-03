@@ -41,6 +41,12 @@ app.include_router(reports.router, prefix=api_prefix)
 # These endpoints are reachable only on the internal Docker network. Nginx does
 # not proxy /internal, so Prometheus can discover inventory without public access.
 app.add_api_route(
+    "/internal/auth/admin",
+    auth.authorize_admin,
+    methods=["GET"],
+    include_in_schema=False,
+)
+app.add_api_route(
     "/internal/prometheus/discovery/node",
     monitoring.node_discovery,
     methods=["GET"],

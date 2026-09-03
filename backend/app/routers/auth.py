@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Response, status
 from sqlalchemy import select
 
 from app.config import settings
-from app.dependencies import CurrentUser, DbSession
+from app.dependencies import AdminUser, CurrentUser, DbSession
 from app.models import User
 from app.schemas import ApiMessage, LoginRequest, UserRead
 from app.security import create_access_token, verify_password
@@ -43,3 +43,8 @@ def logout(response: Response) -> ApiMessage:
 @router.get("/me", response_model=UserRead)
 def me(user: CurrentUser) -> User:
     return user
+
+
+def authorize_admin(_: AdminUser) -> Response:
+    """Authorize an internal reverse-proxy subrequest for admin-only services."""
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

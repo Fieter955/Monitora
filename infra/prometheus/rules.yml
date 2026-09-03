@@ -29,13 +29,22 @@ groups:
           description: "Ketersediaan memori rendah selama lebih dari 10 menit."
 
       - alert: RuangDiskMenipis
-        expr: min by(instance) (100 * node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) < 10
+        expr: |
+          topk by(instance, device) (
+            1,
+            (
+              100 * node_filesystem_avail_bytes{job="node",fstype!~"autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fuse.rawBridge|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|erofs|sysfs|tmpfs|tracefs",mountpoint!~"^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+|var/lib/containers/storage/.+|parent-distro|run/desktop|usr/lib/wsl|mnt/docker-desktop-disk|mnt/host/wsl[^/]*)(/.*)?$"}
+                / node_filesystem_size_bytes{job="node",fstype!~"autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fuse.rawBridge|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|erofs|sysfs|tmpfs|tracefs",mountpoint!~"^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+|var/lib/containers/storage/.+|parent-distro|run/desktop|usr/lib/wsl|mnt/docker-desktop-disk|mnt/host/wsl[^/]*)(/.*)?$"}
+              and on(instance, device, mountpoint) node_filesystem_readonly{job="node"} == 0
+              and on(instance, device, mountpoint) node_filesystem_device_error{job="node"} == 0
+            )
+          ) < 10
         for: 15m
         labels:
           severity: critical
         annotations:
-          summary: "Sisa disk {{ $labels.instance }} kurang dari 10%"
-          description: "Filesystem perlu dibersihkan atau ditambah kapasitas."
+          summary: "Sisa disk {{ $labels.device_name }} {{ $labels.mountpoint }} kurang dari 10%"
+          description: "Filesystem {{ $labels.device }} pada {{ $labels.mountpoint }} perlu dibersihkan atau ditambah kapasitas."
 
       - alert: WebsiteTidakTersedia
         expr: probe_success{job="blackbox"} == 0

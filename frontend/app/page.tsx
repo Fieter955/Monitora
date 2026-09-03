@@ -135,7 +135,6 @@ export default function DashboardPage() {
                 <div><dt>Data masuk</dt><dd>{formatBytes(summary?.devices.reduce((total, item) => total + (item.receive_bytes_per_second ?? 0), 0) ?? null)}</dd></div>
                 <div><dt>Uptime pertama</dt><dd>{formatUptime(summary?.devices[0]?.uptime_seconds ?? null)}</dd></div>
               </dl>
-              <a className="button" href="/grafana/" target="_blank" rel="noreferrer" style={{width: "100%", marginTop: 16}}><Icon name="external"/>Buka dashboard Grafana</a>
             </div>
           </section>
         </div>

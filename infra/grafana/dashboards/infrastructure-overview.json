@@ -87,6 +87,55 @@
       },
       "fieldConfig": {
         "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 80},
+              {"color": "red", "value": 90}
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 5, "w": 12, "x": 12, "y": 0},
+      "id": 6,
+      "options": {
+        "displayMode": "gradient",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "topk by(instance, device) (1, (100 * (1 - node_filesystem_avail_bytes{job=\"node\",fstype!~\"autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fuse.rawBridge|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|erofs|sysfs|tmpfs|tracefs\",mountpoint!~\"^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+|var/lib/containers/storage/.+|parent-distro|run/desktop|usr/lib/wsl|mnt/docker-desktop-disk|mnt/host/wsl[^/]*)(/.*)?$\"} / node_filesystem_size_bytes{job=\"node\",fstype!~\"autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fuse.rawBridge|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|erofs|sysfs|tmpfs|tracefs\",mountpoint!~\"^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+|var/lib/containers/storage/.+|parent-distro|run/desktop|usr/lib/wsl|mnt/docker-desktop-disk|mnt/host/wsl[^/]*)(/.*)?$\"}) and on(instance, device, mountpoint) node_filesystem_readonly{job=\"node\"} == 0 and on(instance, device, mountpoint) node_filesystem_device_error{job=\"node\"} == 0))",
+          "instant": true,
+          "legendFormat": "{{device_name}} · {{mountpoint}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Penggunaan Disk",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
           "color": {"mode": "palette-classic"},
           "custom": {
             "axisCenteredZero": false,
@@ -112,7 +161,7 @@
         },
         "overrides": []
       },
-      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 0},
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 5},
       "id": 3,
       "options": {
         "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true},
@@ -156,7 +205,7 @@
         },
         "overrides": []
       },
-      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 9},
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 5},
       "id": 4,
       "options": {
         "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true},
@@ -198,7 +247,7 @@
         },
         "overrides": []
       },
-      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 9},
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 14},
       "id": 5,
       "options": {
         "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom", "showLegend": true},
@@ -221,5 +270,5 @@
   "timezone": "browser",
   "title": "Ringkasan Infrastruktur",
   "uid": "infrastructure-overview",
-  "version": 1
+  "version": 2
 }

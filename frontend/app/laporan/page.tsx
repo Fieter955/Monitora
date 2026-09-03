@@ -23,9 +23,8 @@ export default function ReportsPage() {
           <dl className="definition-list">
             <div><dt>Format</dt><dd>CSV UTF-8, dapat dibuka di Excel atau LibreOffice</dd></div>
             <div><dt>Waktu data</dt><dd>Kondisi saat tombol unduh dipilih</dd></div>
-            <div><dt>Data historis</dt><dd>Gunakan ekspor Grafana untuk rentang waktu dan grafik teknis</dd></div>
+            <div><dt>Data historis</dt><dd>Administrator dapat menggunakan dashboard Grafana untuk rentang waktu dan grafik teknis</dd></div>
           </dl>
-          <a className="button" href="/grafana/" target="_blank" rel="noreferrer" style={{marginTop: 16}}><Icon name="external"/>Buka Grafana</a>
         </div>
       </section>
     </AppShell>

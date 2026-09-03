@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -15,6 +16,8 @@ const navigation = [
   { href: "/alert", label: "Alert", icon: "alerts" as const },
   { href: "/laporan", label: "Laporan", icon: "reports" as const },
 ];
+
+const grafanaDashboardUrl = "/grafana/d/infrastructure-overview/ringkasan-infrastruktur?kiosk&_dash.hideTimePicker=true&_dash.hideVariables=true&_dash.hideLinks=true";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -52,7 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <a className="skip-link" href="#main-content">Lewati ke konten utama</a>
       <aside className={`sidebar ${menuOpen ? "sidebar-open" : ""}`} aria-label="Navigasi utama">
         <div className="brand">
-          <span className="brand-mark" aria-hidden="true"><span /></span>
+          <Image className="brand-logo" src="/logo.jpg" alt="" width={38} height={38} priority />
           <div><strong>Monitora</strong><small>Infrastruktur TI</small></div>
         </div>
         <nav className="main-nav">
@@ -71,12 +74,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <div className="sidebar-footer">
-          <a href="/grafana/" target="_blank" rel="noreferrer">
-            <Icon name="external" /><span>Buka Grafana</span>
-          </a>
-          <p>Data teknis dan grafik historis</p>
-        </div>
+        {user.role === "admin" && (
+          <div className="sidebar-footer">
+            <a href={grafanaDashboardUrl} target="_blank" rel="noreferrer">
+              <Icon name="external" /><span>Buka Grafana</span>
+            </a>
+            <p>Data teknis dan grafik historis</p>
+          </div>
+        )}
       </aside>
 
       {menuOpen && <button className="sidebar-scrim" aria-label="Tutup navigasi" onClick={() => setMenuOpen(false)} />}
