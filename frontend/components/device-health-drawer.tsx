@@ -56,6 +56,15 @@ export function DeviceHealthDrawer({
             <small>Terakhir diperiksa: {formatDate(health?.checked_at)}</small>
           </div>
 
+          <section className="health-section" aria-labelledby="physical-title">
+            <h3 id="physical-title">Lokasi fisik</h3>
+            <dl className="definition-list technical-details">
+              <div><dt>Label aset</dt><dd>{device.asset_tag || "Belum dicatat"}</dd></div>
+              <div><dt>Rak/patokan</dt><dd>{device.physical_group || "Belum dicatat"}</dd></div>
+              <div><dt>Posisi</dt><dd>{device.physical_position || "Belum dicatat"}</dd></div>
+            </dl>
+          </section>
+
           <section className="health-section" aria-labelledby="action-title">
             <h3 id="action-title">Yang perlu diperiksa</h3>
             {!health ? (

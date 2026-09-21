@@ -5,8 +5,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
 from app.dependencies import AdminUser, CurrentUser, DbSession
-from app.models import CredentialProfile, Device, Location, LocationKind
+from app.models import CredentialProfile, Device, DeviceObservation, Location, LocationKind
 from app.schemas import (
+    BulkPlacementUpdate,
     CredentialProfileRead,
     CredentialSecret,
     DeviceCreate,
@@ -23,6 +24,41 @@ def list_devices(db: DbSession, _: CurrentUser) -> list[Device]:
     return list(
         db.scalars(select(Device).where(Device.archived_at.is_(None)).order_by(Device.name))
     )
+
+
+@router.patch("/bulk-placement", response_model=list[DeviceRead])
+def bulk_place_devices(
+    payload: BulkPlacementUpdate, db: DbSession, _: AdminUser
+) -> list[Device]:
+    room = db.get(Location, payload.room_id)
+    if room is None or room.kind != LocationKind.ROOM.value:
+        raise HTTPException(status_code=422, detail="Lokasi penempatan harus berupa ruang")
+    if len(set(payload.device_ids)) != len(payload.device_ids):
+        raise HTTPException(status_code=422, detail="Daftar perangkat memuat ID duplikat")
+    devices = list(
+        db.scalars(
+            select(Device).where(
+                Device.id.in_(payload.device_ids), Device.archived_at.is_(None)
+            )
+        )
+    )
+    if len(devices) != len(payload.device_ids):
+        raise HTTPException(status_code=404, detail="Satu atau lebih perangkat tidak ditemukan")
+    existing_rooms = {device.room_id for device in devices if device.room_id is not None}
+    if existing_rooms and existing_rooms != {payload.room_id}:
+        raise HTTPException(
+            status_code=422,
+            detail="Penempatan massal hanya boleh untuk perangkat dalam ruang yang sama",
+        )
+    for device in devices:
+        device.room_id = payload.room_id
+        device.floorplan_x = payload.floorplan_x
+        device.floorplan_y = payload.floorplan_y
+        device.physical_group = payload.physical_group.strip()
+    db.commit()
+    for device in devices:
+        db.refresh(device)
+    return sorted(devices, key=lambda item: item.name.casefold())
 
 
 def save_credential_profile(
@@ -73,7 +109,9 @@ def create_device(payload: DeviceCreate, db: DbSession, _: AdminUser) -> Device:
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Nama perangkat sudah digunakan") from exc
+        raise HTTPException(
+            status_code=409, detail="Nama perangkat atau label aset sudah digunakan"
+        ) from exc
     db.refresh(device)
     return device
 
@@ -100,13 +138,28 @@ def update_device(device_id: int, payload: DeviceUpdate, db: DbSession, _: Admin
         ).id
     validate_references(values, db)
     validate_device_semantics(values, device)
+    if (
+        values.get("prometheus_job") == "icmp"
+        and device.prometheus_job != "icmp"
+    ):
+        values["credential_profile_id"] = None
+        observation = db.scalar(
+            select(DeviceObservation).where(
+                DeviceObservation.device_id == device.id,
+                DeviceObservation.source == "librenms",
+            )
+        )
+        if observation is not None:
+            db.delete(observation)
     for key, value in values.items():
         setattr(device, key, value)
     try:
         db.commit()
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=409, detail="Nama perangkat sudah digunakan") from exc
+        raise HTTPException(
+            status_code=409, detail="Nama perangkat atau label aset sudah digunakan"
+        ) from exc
     db.refresh(device)
     return device
 

@@ -1,11 +1,13 @@
 from sqlalchemy import select
 
 from app.bootstrap import bootstrap
+from app.config import settings
 from app.database import SessionLocal
 from app.models import Device, DeviceKind, NetworkLink
 
 
-def test_bootstrap_seeds_simple_lan_and_is_idempotent():
+def test_bootstrap_seeds_simple_lan_and_is_idempotent(monkeypatch):
+    monkeypatch.setattr(settings, "seed_demo_data", True)
     bootstrap()
 
     with SessionLocal() as db:
@@ -30,7 +32,8 @@ def test_bootstrap_seeds_simple_lan_and_is_idempotent():
         assert len(list(db.scalars(select(NetworkLink)))) == 4
 
 
-def test_bootstrap_upgrades_the_previous_single_server_seed():
+def test_bootstrap_upgrades_the_previous_single_server_seed(monkeypatch):
+    monkeypatch.setattr(settings, "seed_demo_data", True)
     with SessionLocal() as db:
         db.add(
             Device(
@@ -53,3 +56,11 @@ def test_bootstrap_upgrades_the_previous_single_server_seed():
         assert server is not None
         assert server.address == "192.168.1.10"
         assert len(list(db.scalars(select(NetworkLink)))) == 4
+
+
+def test_bootstrap_does_not_seed_demo_devices_by_default():
+    bootstrap()
+
+    with SessionLocal() as db:
+        assert list(db.scalars(select(Device))) == []
+        assert list(db.scalars(select(NetworkLink))) == []

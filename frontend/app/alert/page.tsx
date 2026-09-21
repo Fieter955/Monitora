@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {useCallback, useEffect, useState} from "react";
 import {AppShell, PageHeader} from "@/components/app-shell";
 import {Icon} from "@/components/icons";
@@ -51,8 +52,8 @@ export default function AlertsPage() {
         ) : (
           <div className="table-wrap">
             <table className="data-table">
-              <thead><tr><th scope="col">Alert</th><th scope="col">Target</th><th scope="col">Ringkasan</th><th scope="col">Prioritas</th><th scope="col">Aktif sejak</th></tr></thead>
-              <tbody>{alerts.map((alert, index) => <tr key={`${alert.name}-${alert.instance}-${index}`}><td><span className="table-primary">{alert.name}</span><span className="table-secondary">{alert.state === "pending" ? "Menunggu durasi aturan" : "Sedang aktif"}</span></td><td><code>{alert.instance}</code></td><td>{alert.summary || "Tidak ada keterangan tambahan"}</td><td><StatusBadge status={alert.severity}/></td><td>{alert.active_since ? new Intl.DateTimeFormat("id-ID", {dateStyle: "medium", timeStyle: "short"}).format(new Date(alert.active_since)) : "—"}</td></tr>)}</tbody>
+              <thead><tr><th scope="col">Alert</th><th scope="col">Target</th><th scope="col">Ringkasan</th><th scope="col">Prioritas</th><th scope="col">Aktif sejak</th><th scope="col"><span className="visually-hidden">Tindakan</span></th></tr></thead>
+              <tbody>{alerts.map((alert, index) => <tr key={`${alert.name}-${alert.instance}-${index}`}><td><span className="table-primary">{alert.name}</span><span className="table-secondary">{alert.state === "pending" ? "Menunggu durasi aturan" : "Sedang aktif"}</span></td><td><code>{alert.instance}</code></td><td>{alert.summary || "Tidak ada keterangan tambahan"}</td><td><StatusBadge status={alert.severity}/></td><td>{alert.active_since ? new Intl.DateTimeFormat("id-ID", {dateStyle: "medium", timeStyle: "short"}).format(new Date(alert.active_since)) : "—"}</td><td>{alert.device_id&&<Link className="button button-small" href={`/peta?device=${alert.device_id}`}>Temukan</Link>}</td></tr>)}</tbody>
             </table>
           </div>
         )}

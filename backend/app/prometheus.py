@@ -22,9 +22,6 @@ ALERT_DISPLAY_NAMES = {
     "PerangkatLANOffline": "Perangkat LAN offline",
 }
 
-ICMP_KINDS = {"router", "access_point", "other"}
-
-
 def _metric_map(result: list[dict[str, Any]], *, use_max: bool = False) -> dict[str, float]:
     values: dict[str, float] = {}
     for item in result:
@@ -124,7 +121,7 @@ class PrometheusClient:
             target = device.prometheus_target
             up_value = (
                 probe.get(target)
-                if device.kind == "website" or device.kind in ICMP_KINDS
+                if device.prometheus_job in {"icmp", "blackbox"}
                 else up.get(target)
             )
             status = "online" if up_value == 1 else "offline" if up_value == 0 else "unknown"
@@ -174,6 +171,11 @@ class PrometheusClient:
                     instance=labels.get("instance", labels.get("job", "-")),
                     summary=annotations.get("summary", annotations.get("description", "")),
                     active_since=parsed_active_at,
+                    device_id=(
+                        int(labels["device_id"])
+                        if str(labels.get("device_id", "")).isdigit()
+                        else None
+                    ),
                 )
             )
         return alerts

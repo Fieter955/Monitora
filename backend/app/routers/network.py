@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from typing import Literal
 from uuid import uuid4
 
 from fastapi import APIRouter, HTTPException
@@ -11,6 +12,7 @@ from app.models import (
     CredentialProfile,
     Device,
     DeviceKind,
+    DeviceObservation,
     NetworkLink,
     NetworkPort,
     PortExpectation,
@@ -23,7 +25,7 @@ from app.network_service import (
     sync_links,
     sync_network_device,
 )
-from app.probes import rtsp_probe, tcp_probe
+from app.probes import icmp_probe, rtsp_probe, tcp_probe
 from app.prometheus import prometheus_client
 from app.schemas import (
     ConnectionTestRequest,
@@ -83,6 +85,15 @@ def test_connection(
         else None
     )
     credentials = inline or (decrypt_credentials(stored.encrypted_payload) if stored else None)
+    if payload.prometheus_job == "icmp":
+        result = icmp_probe(payload.address)
+        return ConnectionTestResult(
+            reachable=result.reachable,
+            provider_available=result.status != "unavailable",
+            capabilities=["icmp"] if result.reachable else [],
+            message=result.reason,
+            latency_ms=result.latency_ms,
+        )
     if payload.kind == DeviceKind.CCTV:
         if payload.stream_url:
             result = rtsp_probe(payload.stream_url, credentials)
@@ -132,6 +143,25 @@ def test_connection(
 def discover_device(device_id: int, db: DbSession, _: AdminUser) -> DiscoveryResult:
     device = get_device_or_404(device_id, db)
     try:
+        if device.kind in NETWORK_KINDS and device.prometheus_job == "icmp":
+            device.monitoring_level = "basic"
+            device.capabilities = {"icmp": True}
+            legacy_observation = db.scalar(
+                select(DeviceObservation).where(
+                    DeviceObservation.device_id == device.id,
+                    DeviceObservation.source == "librenms",
+                )
+            )
+            if legacy_observation is not None:
+                db.delete(legacy_observation)
+            db.commit()
+            return DiscoveryResult(
+                device_id=device.id,
+                state="ready",
+                message="Monitoring ICMP aktif. Perangkat ini tidak menjalankan discovery SNMP atau port.",
+                capabilities=["icmp"],
+                ports=[],
+            )
         if device.kind in NETWORK_KINDS:
             librenms_id = device.librenms_device_id
             if librenms_id is None:
@@ -188,10 +218,19 @@ def discover_device(device_id: int, db: DbSession, _: AdminUser) -> DiscoveryRes
 def discovery_state(device_id: int, db: DbSession, _: CurrentUser) -> DiscoveryResult:
     device = get_device_or_404(device_id, db)
     health = device_health(device, db)
+    icmp_only = device.kind in NETWORK_KINDS and device.prometheus_job == "icmp"
     return DiscoveryResult(
         device_id=device.id,
-        state="ready" if health.ports or device.kind == DeviceKind.CCTV.value else "partial",
-        message=f"{len(health.ports)} port tersedia.",
+        state=(
+            "ready"
+            if health.ports or device.kind == DeviceKind.CCTV.value or icmp_only
+            else "partial"
+        ),
+        message=(
+            "Monitoring ICMP aktif; discovery port tidak digunakan."
+            if icmp_only
+            else f"{len(health.ports)} port tersedia."
+        ),
         capabilities=list((device.capabilities or {}).keys()),
         ports=health.ports,
     )
@@ -278,6 +317,8 @@ def topology(
     db: DbSession,
     _: CurrentUser,
     room_id: int | None = None,
+    focus_device_id: int | None = None,
+    scope: Literal["all", "neighbors", "path"] = "all",
 ) -> TopologyRead:
     query = select(Device).where(Device.archived_at.is_(None), Device.is_active.is_(True))
     if room_id is not None:
@@ -299,6 +340,7 @@ def topology(
                 location=device.location,
                 status=health.status,
                 monitoring_level=device.monitoring_level,
+                network_role=device.network_role,
             )
         )
     ports = {port.id: port for port in db.scalars(select(NetworkPort))}
@@ -327,7 +369,54 @@ def topology(
                 utilization_percent=utilization,
             )
         )
-    return TopologyRead(generated_at=datetime.now(UTC), nodes=nodes, edges=edges)
+    path_complete: bool | None = None
+    if focus_device_id is not None:
+        if focus_device_id not in device_ids:
+            raise HTTPException(status_code=404, detail="Perangkat fokus tidak ditemukan")
+        adjacency: dict[int, set[int]] = {device_id: set() for device_id in device_ids}
+        for edge in edges:
+            if edge.target_device_id in device_ids:
+                adjacency[edge.source_device_id].add(edge.target_device_id)
+                adjacency[edge.target_device_id].add(edge.source_device_id)
+
+        selected_ids = {focus_device_id}
+        if scope == "neighbors":
+            selected_ids |= adjacency[focus_device_id]
+        elif scope == "path":
+            gateways = {node.id for node in nodes if node.network_role.value == "gateway"}
+            parents: dict[int, int | None] = {gateway: None for gateway in gateways}
+            queue = list(gateways)
+            while queue and focus_device_id not in parents:
+                current = queue.pop(0)
+                for neighbor in adjacency[current]:
+                    if neighbor not in parents:
+                        parents[neighbor] = current
+                        queue.append(neighbor)
+            path_complete = focus_device_id in parents
+            if path_complete:
+                current: int | None = focus_device_id
+                while current is not None:
+                    selected_ids.add(current)
+                    current = parents[current]
+            else:
+                selected_ids |= adjacency[focus_device_id]
+
+        if scope != "all":
+            nodes = [node for node in nodes if node.id in selected_ids]
+            edges = [
+                edge
+                for edge in edges
+                if edge.source_device_id in selected_ids
+                and edge.target_device_id in selected_ids
+            ]
+
+    return TopologyRead(
+        generated_at=datetime.now(UTC),
+        nodes=nodes,
+        edges=edges,
+        focus_device_id=focus_device_id,
+        path_complete=path_complete,
+    )
 
 
 @router.post("/network/sync", response_model=TopologyRead)

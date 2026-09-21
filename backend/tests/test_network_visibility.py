@@ -1,8 +1,9 @@
 from sqlalchemy import select
 
 from app.database import SessionLocal
-from app.models import Device, PortExpectation, PortExpectationMode
-from app.network_service import device_health, sync_network_device
+from app.models import Device, DeviceObservation, PortExpectation, PortExpectationMode
+from app.network_service import device_health, sync_all, sync_network_device
+from app.probes import ProbeResult
 from app.security import decrypt_credentials, encrypt_credentials
 
 
@@ -199,6 +200,116 @@ def test_icmp_discovery_exposes_lan_devices_but_not_unmanaged_hub(admin_client):
         "192.168.1.20",
     }
     assert all(item["targets"][0] != "not-monitored" for item in targets)
+
+
+def test_network_devices_are_discovered_only_by_their_selected_job(admin_client):
+    devices = (
+        ("Router ICMP", "router", "icmp", "10.30.0.1"),
+        ("Switch ICMP", "switch", "icmp", "10.30.0.2"),
+        ("Router SNMP", "router", "snmp", "10.30.0.3"),
+    )
+    for name, kind, job, target in devices:
+        response = admin_client.post(
+            "/api/v1/devices",
+            json={
+                "name": name,
+                "kind": kind,
+                "address": target,
+                "prometheus_job": job,
+                "prometheus_target": target,
+            },
+        )
+        assert response.status_code == 201
+
+    icmp_targets = {
+        item["targets"][0]
+        for item in admin_client.get("/internal/prometheus/discovery/icmp").json()
+    }
+    snmp_targets = {
+        item["targets"][0]
+        for item in admin_client.get("/internal/prometheus/discovery/snmp").json()
+    }
+    assert icmp_targets == {"10.30.0.1", "10.30.0.2"}
+    assert snmp_targets == {"10.30.0.3"}
+
+
+def test_icmp_router_discovery_skips_librenms(admin_client):
+    created = admin_client.post(
+        "/api/v1/devices",
+        json={
+            "name": "Router Tanpa SNMP",
+            "kind": "router",
+            "address": "10.40.0.1",
+            "prometheus_job": "icmp",
+            "prometheus_target": "10.40.0.1",
+        },
+    )
+    device_id = created.json()["id"]
+
+    discovered = admin_client.post(f"/api/v1/devices/{device_id}/discover")
+
+    assert discovered.status_code == 200
+    assert discovered.json()["state"] == "ready"
+    assert discovered.json()["capabilities"] == ["icmp"]
+    assert discovered.json()["ports"] == []
+
+
+def test_icmp_connection_test_uses_blackbox_probe(admin_client, monkeypatch):
+    monkeypatch.setattr(
+        "app.routers.network.icmp_probe",
+        lambda address: ProbeResult(True, "online", "Ping ICMP berhasil", 1.25),
+    )
+
+    response = admin_client.post(
+        "/api/v1/devices/test-connection",
+        json={
+            "address": "10.40.0.1",
+            "kind": "router",
+            "prometheus_job": "icmp",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["reachable"] is True
+    assert response.json()["capabilities"] == ["icmp"]
+
+
+def test_sync_all_does_not_send_icmp_router_to_librenms():
+    class UnconfiguredLibreNMS:
+        configured = False
+
+        def add_device(self, *args, **kwargs):
+            raise AssertionError("ICMP-only device must not be sent to LibreNMS")
+
+    with SessionLocal() as db:
+        device = Device(
+            name="Router ICMP",
+            kind="router",
+            address="10.50.0.1",
+            prometheus_job="icmp",
+            prometheus_target="10.50.0.1",
+        )
+        db.add(device)
+        db.flush()
+        db.add(
+            DeviceObservation(
+                device_id=device.id,
+                source="librenms",
+                status="unknown",
+                reason="Token API LibreNMS belum dikonfigurasi",
+            )
+        )
+        db.commit()
+
+        sync_all(db, UnconfiguredLibreNMS())
+        db.refresh(device)
+
+        assert device.monitoring_level == "basic"
+        assert device.capabilities == {"icmp": True}
+        assert device_health(device, db).issues == []
+        assert db.scalar(
+            select(DeviceObservation).where(DeviceObservation.device_id == device.id)
+        ) is None
 
 
 def test_network_device_down_is_critical():

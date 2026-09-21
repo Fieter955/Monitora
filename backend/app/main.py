@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.config import settings
-from app.routers import auth, devices, locations, monitoring, network, reports
+from app.routers import auth, devices, locations, monitoring, network, operations, reports
 
 app = FastAPI(
     title=settings.app_name,
@@ -35,6 +35,7 @@ app.include_router(auth.router, prefix=api_prefix)
 app.include_router(devices.router, prefix=api_prefix)
 app.include_router(locations.router, prefix=api_prefix)
 app.include_router(network.router, prefix=api_prefix)
+app.include_router(operations.router, prefix=api_prefix)
 app.include_router(monitoring.router, prefix=api_prefix)
 app.include_router(reports.router, prefix=api_prefix)
 

@@ -8,6 +8,7 @@ export type DeviceKind =
   | "hub"
   | "website"
   | "other";
+export type NetworkRole = "gateway" | "distribution" | "access" | "endpoint";
 
 export interface User {
   id: number;
@@ -35,6 +36,10 @@ export interface Device {
   stream_url: string;
   floorplan_x: number | null;
   floorplan_y: number | null;
+  asset_tag: string | null;
+  physical_group: string;
+  physical_position: string;
+  network_role: NetworkRole;
   last_seen_at: string | null;
   archived_at: string | null;
   created_at: string;
@@ -66,6 +71,10 @@ export interface DeviceInput {
   stream_url: string;
   floorplan_x: number | null;
   floorplan_y: number | null;
+  asset_tag: string | null;
+  physical_group: string;
+  physical_position: string;
+  network_role: NetworkRole;
   credential?: CredentialSecret;
 }
 
@@ -77,6 +86,9 @@ export interface Location {
   kind: LocationKind;
   parent_id: number | null;
   sort_order: number;
+  address: string;
+  latitude: number | null;
+  longitude: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -130,6 +142,7 @@ export interface DeviceHealth {
   device_id: number;
   status: "healthy" | "warning" | "critical" | "unknown";
   monitoring_level: string;
+  network_role: NetworkRole;
   checked_at: string | null;
   last_seen_at: string | null;
   reason: string;
@@ -154,6 +167,7 @@ export interface TopologyNode {
   location: string;
   status: "healthy" | "warning" | "critical" | "unknown";
   monitoring_level: string;
+  network_role: NetworkRole;
 }
 
 export interface TopologyEdge {
@@ -172,6 +186,25 @@ export interface Topology {
   generated_at: string;
   nodes: TopologyNode[];
   edges: TopologyEdge[];
+  focus_device_id: number | null;
+  path_complete: boolean | null;
+}
+
+export interface ProblemLocator {
+  device_id: number;
+  name: string;
+  kind: DeviceKind;
+  address: string;
+  status: "warning" | "critical";
+  issues: DeviceIssue[];
+  room_id: number | null;
+  location_path: string[];
+  asset_tag: string | null;
+  physical_group: string;
+  physical_position: string;
+  floorplan_x: number | null;
+  floorplan_y: number | null;
+  last_seen_at: string | null;
 }
 
 export interface DeviceMetric {
@@ -204,4 +237,5 @@ export interface AlertItem {
   instance: string;
   summary: string;
   active_since: string | null;
+  device_id: number | null;
 }

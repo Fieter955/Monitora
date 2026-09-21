@@ -15,6 +15,9 @@ type IconName =
   | "refresh"
   | "map"
   | "topology"
+  | "maximize"
+  | "minimize"
+  | "fit"
   | "close"
   | "search";
 
@@ -33,6 +36,9 @@ const paths: Record<IconName, React.ReactNode> = {
   refresh: <><path d="M20 6v6h-6"/><path d="M4 18v-6h6"/><path d="M18.5 9A7 7 0 0 0 6.2 6.2L4 8M5.5 15A7 7 0 0 0 17.8 17.8L20 16"/></>,
   map: <><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3Z"/><path d="M9 3v15M15 6v15"/></>,
   topology: <><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="12" cy="18" r="2"/><path d="m7 7 4 9M17 7l-4 9M7 6h10"/></>,
+  maximize: <><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></>,
+  minimize: <><path d="M3 8h5V3M21 8h-5V3M3 16h5v5M21 16h-5v5"/></>,
+  fit: <><rect x="4" y="5" width="16" height="14" rx="1"/><path d="m8 9 2 2M8 9v3M8 9h3M16 15l-2-2M16 15v-3M16 15h-3"/></>,
   close: <path d="m6 6 12 12M18 6 6 18"/>,
   search: <><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></>,
 };

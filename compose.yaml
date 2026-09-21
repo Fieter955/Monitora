@@ -40,6 +40,7 @@ services:
     environment:
       APP_NAME: ${APP_NAME:-Pantau Infrastruktur}
       APP_ENV: ${APP_ENV:-development}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
       APP_SECRET_KEY: ${APP_SECRET_KEY:-development-secret-change-before-production}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-480}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
@@ -49,6 +50,7 @@ services:
       ADMIN_FULL_NAME: ${ADMIN_FULL_NAME:-Administrator Infrastruktur}
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://monitoring:monitoring@db:5432/monitoring}
       PROMETHEUS_URL: ${PROMETHEUS_URL:-http://prometheus:9090}
+      BLACKBOX_EXPORTER_URL: ${BLACKBOX_EXPORTER_URL:-http://blackbox-exporter:9115}
       LIBRENMS_URL: ${LIBRENMS_URL:-http://librenms:8000}
       LIBRENMS_API_TOKEN: ${LIBRENMS_API_TOKEN:-}
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-development-credential-key-change-me}
@@ -74,6 +76,7 @@ services:
     command: ["python", "-m", "app.network_worker"]
     environment:
       APP_ENV: ${APP_ENV:-development}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
       APP_SECRET_KEY: ${APP_SECRET_KEY:-development-secret-change-before-production}
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://monitoring:monitoring@db:5432/monitoring}
       LIBRENMS_URL: ${LIBRENMS_URL:-http://librenms:8000}

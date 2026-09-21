@@ -10,7 +10,7 @@ import { Icon } from "./icons";
 
 const navigation = [
   { href: "/", label: "Ringkasan", icon: "dashboard" as const },
-  { href: "/peta", label: "Peta Lokasi", icon: "map" as const },
+  { href: "/peta", label: "Pencari Gangguan", icon: "map" as const },
   { href: "/topologi", label: "Jalur Koneksi", icon: "topology" as const },
   { href: "/perangkat", label: "Perangkat", icon: "devices" as const },
   { href: "/alert", label: "Alert", icon: "alerts" as const },

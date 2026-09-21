@@ -15,11 +15,13 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./monitoring.db"
     prometheus_url: str = "http://localhost:9090"
+    blackbox_exporter_url: str = "http://blackbox-exporter:9115"
     librenms_url: str = "http://localhost:8001"
     librenms_api_token: str = ""
     credential_encryption_key: str = ""
     network_sync_interval_seconds: int = 60
     network_stale_after_seconds: int = 180
+    seed_demo_data: bool = False
 
     admin_username: str = "admin"
     admin_password: str = "admin12345"

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import SessionLocal
-from app.models import Device, DeviceKind, NetworkLink, User, UserRole, utcnow
+from app.models import Device, DeviceKind, NetworkLink, NetworkRole, User, UserRole, utcnow
 from app.security import hash_password
 
 DEMO_DEVICE_SPECS = (
@@ -14,6 +14,9 @@ DEMO_DEVICE_SPECS = (
         "location": "Ruang Server",
         "prometheus_job": "icmp",
         "prometheus_target": "192.168.1.1",
+        "network_role": NetworkRole.GATEWAY.value,
+        "asset_tag": "RT-RS-01",
+        "physical_group": "Rack 01",
         "notes": "Gateway LAN contoh. Tambahkan kredensial SNMP untuk discovery port dan LLDP/CDP.",
     },
     {
@@ -24,6 +27,9 @@ DEMO_DEVICE_SPECS = (
         "prometheus_job": "none",
         "prometheus_target": "not-monitored",
         "monitoring_level": "limited",
+        "network_role": NetworkRole.DISTRIBUTION.value,
+        "asset_tag": "HB-RS-01",
+        "physical_group": "Rack 01",
         "notes": "Hub unmanaged tidak memiliki alamat IP dan tidak dapat melaporkan kondisi port.",
     },
     {
@@ -33,6 +39,8 @@ DEMO_DEVICE_SPECS = (
         "location": "Ruang Server",
         "prometheus_job": "icmp",
         "prometheus_target": "192.168.1.2",
+        "network_role": NetworkRole.ACCESS.value,
+        "asset_tag": "AP-RS-01",
         "notes": "Alamat manajemen access point contoh. Tambahkan kredensial SNMP bila tersedia.",
     },
     {
@@ -42,6 +50,9 @@ DEMO_DEVICE_SPECS = (
         "location": "Ruang Server",
         "prometheus_job": "node",
         "prometheus_target": "node-exporter:9100",
+        "network_role": NetworkRole.ENDPOINT.value,
+        "asset_tag": "SRV-RS-01",
+        "physical_group": "Rack 01",
         "notes": "Komputer 1 sebagai server monitoring. Jalankan node_exporter pada komputer ini.",
     },
     {
@@ -51,6 +62,8 @@ DEMO_DEVICE_SPECS = (
         "location": "Ruang Kerja",
         "prometheus_job": "icmp",
         "prometheus_target": "192.168.1.20",
+        "network_role": NetworkRole.ENDPOINT.value,
+        "asset_tag": "PC-RK-02",
         "notes": "Komputer client contoh yang diperiksa melalui ICMP dari server monitoring.",
     },
 )
@@ -135,9 +148,9 @@ def bootstrap() -> None:
                 )
             )
 
-        if db.scalar(select(func.count()).select_from(Device)) == 0:
+        if settings.seed_demo_data and db.scalar(select(func.count()).select_from(Device)) == 0:
             seed_demo_network(db)
-        elif has_legacy_demo_server(db):
+        elif settings.seed_demo_data and has_legacy_demo_server(db):
             seed_demo_network(db, upgrade_legacy_server=True)
         db.commit()
 

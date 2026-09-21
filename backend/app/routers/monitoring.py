@@ -32,7 +32,7 @@ def alerts(
     return [item for item in results if state is None or item.state == state]
 
 
-def discovery_targets(db: DbSession, kinds: set[str]) -> list[dict]:
+def discovery_targets(db: DbSession, kinds: set[str], job: str) -> list[dict]:
     devices = list(
         db.scalars(
             select(Device)
@@ -40,6 +40,7 @@ def discovery_targets(db: DbSession, kinds: set[str]) -> list[dict]:
                 Device.is_active.is_(True),
                 Device.archived_at.is_(None),
                 Device.kind.in_(kinds),
+                Device.prometheus_job == job,
             )
             .order_by(Device.name)
         )
@@ -58,11 +59,11 @@ def discovery_targets(db: DbSession, kinds: set[str]) -> list[dict]:
 
 
 def node_discovery(db: DbSession) -> list[dict]:
-    return discovery_targets(db, {DeviceKind.LINUX_SERVER.value})
+    return discovery_targets(db, {DeviceKind.LINUX_SERVER.value}, "node")
 
 
 def blackbox_discovery(db: DbSession) -> list[dict]:
-    return discovery_targets(db, {DeviceKind.WEBSITE.value})
+    return discovery_targets(db, {DeviceKind.WEBSITE.value}, "blackbox")
 
 
 def icmp_discovery(db: DbSession) -> list[dict]:
@@ -70,9 +71,11 @@ def icmp_discovery(db: DbSession) -> list[dict]:
         db,
         {
             DeviceKind.ROUTER.value,
+            DeviceKind.SWITCH.value,
             DeviceKind.ACCESS_POINT.value,
             DeviceKind.OTHER.value,
         },
+        "icmp",
     )
 
 
@@ -84,4 +87,5 @@ def snmp_discovery(db: DbSession) -> list[dict]:
             DeviceKind.SWITCH.value,
             DeviceKind.ACCESS_POINT.value,
         },
+        "snmp",
     )

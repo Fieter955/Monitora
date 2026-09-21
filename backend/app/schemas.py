@@ -8,6 +8,7 @@ from app.models import (
     CredentialKind,
     DeviceKind,
     LocationKind,
+    NetworkRole,
     PortExpectationMode,
     UserRole,
 )
@@ -46,6 +47,10 @@ class DeviceBase(BaseModel):
     stream_url: str = Field(default="", max_length=2000)
     floorplan_x: float | None = Field(default=None, ge=0, le=100)
     floorplan_y: float | None = Field(default=None, ge=0, le=100)
+    asset_tag: str | None = Field(default=None, max_length=80)
+    physical_group: str = Field(default="", max_length=160)
+    physical_position: str = Field(default="", max_length=160)
+    network_role: NetworkRole = NetworkRole.ENDPOINT
 
     @field_validator("name", "address", "prometheus_job", "prometheus_target")
     @classmethod
@@ -59,6 +64,11 @@ class DeviceBase(BaseModel):
     @classmethod
     def reject_embedded_stream_credentials(cls, value: str) -> str:
         return validate_stream_url(value)
+
+    @field_validator("asset_tag")
+    @classmethod
+    def normalize_asset_tag(cls, value: str | None) -> str | None:
+        return value.strip().upper() or None if value is not None else None
 
     @model_validator(mode="after")
     def require_cctv_stream(self) -> Self:
@@ -97,11 +107,20 @@ class DeviceUpdate(BaseModel):
     stream_url: str | None = Field(default=None, max_length=2000)
     floorplan_x: float | None = Field(default=None, ge=0, le=100)
     floorplan_y: float | None = Field(default=None, ge=0, le=100)
+    asset_tag: str | None = Field(default=None, max_length=80)
+    physical_group: str | None = Field(default=None, max_length=160)
+    physical_position: str | None = Field(default=None, max_length=160)
+    network_role: NetworkRole | None = None
 
     @field_validator("stream_url")
     @classmethod
     def reject_embedded_stream_credentials(cls, value: str | None) -> str | None:
         return validate_stream_url(value) if value is not None else None
+
+    @field_validator("asset_tag")
+    @classmethod
+    def normalize_asset_tag(cls, value: str | None) -> str | None:
+        return value.strip().upper() or None if value is not None else None
 
 
 class DeviceRead(DeviceBase):
@@ -131,6 +150,9 @@ class LocationBase(BaseModel):
     kind: LocationKind
     parent_id: int | None = None
     sort_order: int = 0
+    address: str = Field(default="", max_length=255)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
 
 
 class LocationCreate(LocationBase):
@@ -141,6 +163,9 @@ class LocationUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=160)
     parent_id: int | None = None
     sort_order: int | None = None
+    address: str | None = Field(default=None, max_length=255)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
 
 
 class LocationRead(LocationBase):
@@ -202,6 +227,7 @@ class PortExpectationsUpdate(BaseModel):
 class ConnectionTestRequest(BaseModel):
     address: str = Field(min_length=2, max_length=255)
     kind: DeviceKind
+    prometheus_job: str | None = Field(default=None, max_length=80)
     stream_url: str = Field(default="", max_length=2000)
     credential_profile_id: int | None = None
     credential: CredentialSecret | None = None
@@ -265,6 +291,7 @@ class TopologyNode(BaseModel):
     location: str
     status: Literal["healthy", "warning", "critical", "unknown"]
     monitoring_level: str
+    network_role: NetworkRole
 
 
 class TopologyEdge(BaseModel):
@@ -283,6 +310,33 @@ class TopologyRead(BaseModel):
     generated_at: datetime
     nodes: list[TopologyNode]
     edges: list[TopologyEdge]
+    focus_device_id: int | None = None
+    path_complete: bool | None = None
+
+
+class BulkPlacementUpdate(BaseModel):
+    device_ids: list[int] = Field(min_length=1, max_length=100)
+    room_id: int
+    floorplan_x: float = Field(ge=0, le=100)
+    floorplan_y: float = Field(ge=0, le=100)
+    physical_group: str = Field(default="", max_length=160)
+
+
+class ProblemLocatorRead(BaseModel):
+    device_id: int
+    name: str
+    kind: DeviceKind
+    address: str
+    status: Literal["warning", "critical"]
+    issues: list[DeviceIssue]
+    room_id: int | None
+    location_path: list[str]
+    asset_tag: str | None
+    physical_group: str
+    physical_position: str
+    floorplan_x: float | None
+    floorplan_y: float | None
+    last_seen_at: datetime | None
 
 
 class ManualLinkCreate(BaseModel):
@@ -322,3 +376,4 @@ class AlertRead(BaseModel):
     instance: str
     summary: str
     active_since: datetime | None = None
+    device_id: int | None = None

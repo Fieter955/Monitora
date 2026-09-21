@@ -241,8 +241,19 @@ def sync_all(db: Session, client: LibreNMSClient = librenms_client) -> None:
     )
     for device in devices:
         try:
-            if device.kind in NETWORK_KINDS:
+            if device.kind in NETWORK_KINDS and device.prometheus_job == "snmp":
                 sync_network_device(device, db, client)
+            elif device.kind in NETWORK_KINDS and device.prometheus_job == "icmp":
+                device.monitoring_level = "basic"
+                device.capabilities = {"icmp": True}
+                legacy_observation = db.scalar(
+                    select(DeviceObservation).where(
+                        DeviceObservation.device_id == device.id,
+                        DeviceObservation.source == "librenms",
+                    )
+                )
+                if legacy_observation is not None:
+                    db.delete(legacy_observation)
             elif device.kind == DeviceKind.CCTV.value:
                 sync_cctv_device(device, db)
             elif device.kind == DeviceKind.HUB.value:
@@ -339,6 +350,12 @@ def device_health(device: Device, db: Session) -> DeviceHealthRead:
     observation = db.scalar(
         select(DeviceObservation).where(DeviceObservation.device_id == device.id)
     )
+    if (
+        device.prometheus_job == "icmp"
+        and observation is not None
+        and observation.source == "librenms"
+    ):
+        observation = None
     checked_at = observation.checked_at if observation else device.last_seen_at
     if checked_at is not None and checked_at.tzinfo is None:
         checked_at = checked_at.replace(tzinfo=UTC)
@@ -374,7 +391,10 @@ def device_health(device: Device, db: Session) -> DeviceHealthRead:
             )
         )
     stale_before = utcnow() - timedelta(seconds=settings.network_stale_after_seconds)
-    if device.kind in NETWORK_KINDS | {DeviceKind.CCTV.value} and (
+    needs_fresh_observation = (
+        device.prometheus_job == "snmp" and device.kind in NETWORK_KINDS
+    ) or device.kind == DeviceKind.CCTV.value
+    if needs_fresh_observation and (
         checked_at is None or checked_at < stale_before
     ):
         issues.append(

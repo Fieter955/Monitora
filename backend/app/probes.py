@@ -4,6 +4,10 @@ import time
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
+import httpx
+
+from app.config import settings
+
 
 @dataclass
 class ProbeResult:
@@ -21,6 +25,32 @@ def tcp_probe(address: str, port: int, timeout: float = 3.0) -> ProbeResult:
             return ProbeResult(True, "online", "Koneksi TCP berhasil", round(latency, 2))
     except OSError as exc:
         return ProbeResult(False, "offline", f"Koneksi gagal: {exc}")
+
+
+def icmp_probe(address: str, timeout: float = 6.0) -> ProbeResult:
+    """Run the same ICMP probe used by Prometheus through Blackbox Exporter."""
+    started = time.perf_counter()
+    try:
+        response = httpx.get(
+            f"{settings.blackbox_exporter_url.rstrip('/')}/probe",
+            params={"module": "icmp", "target": address},
+            timeout=timeout,
+        )
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        return ProbeResult(False, "unavailable", f"Probe ICMP tidak tersedia: {exc}")
+
+    success = any(
+        line.strip() == "probe_success 1"
+        for line in response.text.splitlines()
+    )
+    latency = round((time.perf_counter() - started) * 1000, 2)
+    return ProbeResult(
+        success,
+        "online" if success else "offline",
+        "Ping ICMP berhasil" if success else "Target tidak merespons ping ICMP",
+        latency,
+    )
 
 
 def rtsp_probe(

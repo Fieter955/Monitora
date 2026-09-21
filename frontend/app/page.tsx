@@ -83,7 +83,7 @@ export default function DashboardPage() {
 
       <section className="operations-strip" aria-labelledby="priority-title">
         <div className="priority-copy"><p className="eyebrow">Prioritas tim</p><h2 id="priority-title">{problemNodes.length ? `${problemNodes.length} perangkat perlu diperiksa` : "Tidak ada gangguan jaringan aktif"}</h2><p>{problemNodes.length ? "Mulai dari lokasi dan perangkat berikut; detail teknis tersedia ketika dibutuhkan." : "Seluruh perangkat dengan data terbaru berada dalam kondisi normal."}</p></div>
-        <div className="priority-devices">{problemNodes.slice(0,3).map((node)=><Link href="/peta" key={node.id}><StatusBadge status={node.status}/><span><strong>{node.name}</strong><small>{node.location||node.address}</small></span><span aria-hidden="true">→</span></Link>)}</div>
+        <div className="priority-devices">{problemNodes.slice(0,3).map((node)=><Link href={`/peta?device=${node.id}`} key={node.id}><StatusBadge status={node.status}/><span><strong>{node.name}</strong><small>{node.location||node.address}</small></span><span aria-hidden="true">→</span></Link>)}</div>
         <div className="priority-actions"><Link className="button" href="/peta"><Icon name="map"/>Buka Peta Lokasi</Link><Link className="button" href="/topologi"><Icon name="topology"/>Lihat Jalur Koneksi</Link></div>
       </section>
 

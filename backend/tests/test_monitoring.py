@@ -131,6 +131,7 @@ def test_alert_parser_uses_human_readable_name(monkeypatch):
                         "alertname": "RuangDiskMenipis",
                         "severity": "critical",
                         "instance": "server:9100",
+                        "device_id": "17",
                     },
                     "annotations": {"summary": "Sisa disk kurang dari 10%"},
                     "state": "firing",
@@ -144,3 +145,4 @@ def test_alert_parser_uses_human_readable_name(monkeypatch):
 
     assert alerts[0].name == "Ruang disk menipis"
     assert alerts[0].active_since is not None
+    assert alerts[0].device_id == 17
