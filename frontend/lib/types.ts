@@ -1,6 +1,7 @@
 export type Role = "admin" | "viewer";
 export type DeviceKind =
   | "linux_server"
+  | "windows_server"
   | "router"
   | "switch"
   | "access_point"
@@ -40,6 +41,9 @@ export interface Device {
   physical_group: string;
   physical_position: string;
   network_role: NetworkRole;
+  isp_name: string;
+  wan_if_name: string;
+  wan_if_index: number | null;
   last_seen_at: string | null;
   archived_at: string | null;
   created_at: string;
@@ -75,6 +79,9 @@ export interface DeviceInput {
   physical_group: string;
   physical_position: string;
   network_role: NetworkRole;
+  isp_name: string;
+  wan_if_name: string;
+  wan_if_index: number | null;
   credential?: CredentialSecret;
 }
 
@@ -227,7 +234,30 @@ export interface MonitoringSummary {
   unknown_devices: number;
   firing_alerts: number;
   devices: DeviceMetric[];
+  internet_health: InternetHealth | null;
   message: string | null;
+}
+
+export interface InternetHealth {
+  status: "healthy" | "warning" | "critical" | "unknown";
+  cause: "none" | "lan_or_router" | "wan_link" | "isp_upstream" | "dns" | "https" | "unknown";
+  summary: string;
+  gateway_device_id: number | null;
+  gateway_reachable: boolean | null;
+  wan_oper_up: boolean | null;
+  internet_ip_reachable: boolean | null;
+  dns_reachable: boolean | null;
+  https_reachable: boolean | null;
+  checked_at: string;
+}
+
+export interface SystemCapabilities {
+  deployment_profile: "docker_full" | "windows_native";
+  librenms: boolean;
+  snmp: boolean;
+  grafana: boolean;
+  vmware: boolean;
+  advanced_topology: boolean;
 }
 
 export interface AlertItem {

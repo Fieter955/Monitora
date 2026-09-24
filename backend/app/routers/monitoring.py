@@ -32,7 +32,9 @@ def alerts(
     return [item for item in results if state is None or item.state == state]
 
 
-def discovery_targets(db: DbSession, kinds: set[str], job: str) -> list[dict]:
+def discovery_targets(
+    db: DbSession, kinds: set[str], job: str, *, include_network_role: bool = False
+) -> list[dict]:
     devices = list(
         db.scalars(
             select(Device)
@@ -45,21 +47,28 @@ def discovery_targets(db: DbSession, kinds: set[str], job: str) -> list[dict]:
             .order_by(Device.name)
         )
     )
-    return [
-        {
-            "targets": [device.prometheus_target],
-            "labels": {
-                "device_id": str(device.id),
-                "device_name": device.name,
-                "location": device.location or "-",
-            },
+    results = []
+    for device in devices:
+        labels = {
+            "device_id": str(device.id),
+            "device_name": device.name,
+            "location": device.location or "-",
         }
-        for device in devices
-    ]
+        if include_network_role:
+            labels["network_role"] = device.network_role
+        results.append({
+            "targets": [device.prometheus_target],
+            "labels": labels,
+        })
+    return results
 
 
 def node_discovery(db: DbSession) -> list[dict]:
     return discovery_targets(db, {DeviceKind.LINUX_SERVER.value}, "node")
+
+
+def windows_discovery(db: DbSession) -> list[dict]:
+    return discovery_targets(db, {DeviceKind.WINDOWS_SERVER.value}, "windows")
 
 
 def blackbox_discovery(db: DbSession) -> list[dict]:
@@ -88,4 +97,32 @@ def snmp_discovery(db: DbSession) -> list[dict]:
             DeviceKind.ACCESS_POINT.value,
         },
         "snmp",
+        include_network_role=True,
     )
+
+
+def gateway_discovery(db: DbSession) -> list[dict]:
+    devices = list(
+        db.scalars(
+            select(Device)
+            .where(
+                Device.is_active.is_(True),
+                Device.archived_at.is_(None),
+                Device.kind == DeviceKind.ROUTER.value,
+                Device.network_role == "gateway",
+            )
+            .order_by(Device.name)
+        )
+    )
+    return [
+        {
+            "targets": [device.address],
+            "labels": {
+                "device_id": str(device.id),
+                "device_name": device.name,
+                "location": device.location or "-",
+                "network_role": device.network_role,
+            },
+        }
+        for device in devices
+    ]

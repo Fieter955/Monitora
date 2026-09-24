@@ -1,0 +1,18 @@
+:8080 {
+  encode gzip
+
+  handle /api/* {
+    reverse_proxy 127.0.0.1:8000
+  }
+
+  handle /grafana/* {
+    forward_auth 127.0.0.1:8000 {
+      uri /internal/auth/session
+    }
+    reverse_proxy 127.0.0.1:3001
+  }
+
+  handle {
+    reverse_proxy 127.0.0.1:3000
+  }
+}

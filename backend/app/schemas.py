@@ -51,6 +51,9 @@ class DeviceBase(BaseModel):
     physical_group: str = Field(default="", max_length=160)
     physical_position: str = Field(default="", max_length=160)
     network_role: NetworkRole = NetworkRole.ENDPOINT
+    isp_name: str = Field(default="", max_length=160)
+    wan_if_name: str = Field(default="", max_length=160)
+    wan_if_index: int | None = Field(default=None, ge=1)
 
     @field_validator("name", "address", "prometheus_job", "prometheus_target")
     @classmethod
@@ -111,6 +114,9 @@ class DeviceUpdate(BaseModel):
     physical_group: str | None = Field(default=None, max_length=160)
     physical_position: str | None = Field(default=None, max_length=160)
     network_role: NetworkRole | None = None
+    isp_name: str | None = Field(default=None, max_length=160)
+    wan_if_name: str | None = Field(default=None, max_length=160)
+    wan_if_index: int | None = Field(default=None, ge=1)
 
     @field_validator("stream_url")
     @classmethod
@@ -366,7 +372,38 @@ class MonitoringSummary(BaseModel):
     unknown_devices: int
     firing_alerts: int
     devices: list[DeviceMetric]
+    internet_health: "InternetHealth | None" = None
     message: str | None = None
+
+
+class InternetHealth(BaseModel):
+    status: Literal["healthy", "warning", "critical", "unknown"]
+    cause: Literal["none", "lan_or_router", "wan_link", "isp_upstream", "dns", "https", "unknown"]
+    summary: str
+    gateway_device_id: int | None = None
+    gateway_reachable: bool | None = None
+    wan_oper_up: bool | None = None
+    internet_ip_reachable: bool | None = None
+    dns_reachable: bool | None = None
+    https_reachable: bool | None = None
+    checked_at: datetime
+
+
+class SystemCapabilities(BaseModel):
+    deployment_profile: Literal["docker_full", "windows_native"]
+    librenms: bool
+    snmp: bool = True
+    grafana: bool = True
+    vmware: bool
+    advanced_topology: bool
+
+
+class SnmpInterfaceRead(BaseModel):
+    if_index: int
+    if_name: str
+    if_description: str = ""
+    if_alias: str = ""
+    oper_up: bool | None = None
 
 
 class AlertRead(BaseModel):

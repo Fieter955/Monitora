@@ -18,3 +18,12 @@ modules:
     icmp:
       preferred_ip_protocol: ip4
 
+  dns_udp:
+    prober: dns
+    timeout: 5s
+    dns:
+      preferred_ip_protocol: ip4
+      query_name: example.com
+      query_type: A
+      valid_rcodes: [NOERROR]
+

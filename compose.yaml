@@ -40,6 +40,10 @@ services:
     environment:
       APP_NAME: ${APP_NAME:-Pantau Infrastruktur}
       APP_ENV: ${APP_ENV:-development}
+      DEPLOYMENT_PROFILE: ${DEPLOYMENT_PROFILE:-docker_full}
+      ENABLE_LIBRENMS: ${ENABLE_LIBRENMS:-true}
+      ENABLE_VMWARE: ${ENABLE_VMWARE:-false}
+      ENABLE_ADVANCED_TOPOLOGY: ${ENABLE_ADVANCED_TOPOLOGY:-true}
       SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
       APP_SECRET_KEY: ${APP_SECRET_KEY:-development-secret-change-before-production}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-480}
@@ -119,6 +123,7 @@ services:
     volumes:
       - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./infra/prometheus/rules.yml:/etc/prometheus/rules.yml:ro
+      - ./infra/prometheus/file_sd:/etc/prometheus/file_sd:ro
       - prometheus_data:/prometheus
     expose: ["9090"]
     networks: [internal, monitoring]
@@ -195,8 +200,30 @@ services:
   snmp-exporter:
     image: quay.io/prometheus/snmp-exporter:v0.30.1
     restart: unless-stopped
+    command:
+      - --config.file=/etc/snmp_exporter/snmp.yml
+      - --config.file=/etc/snmp_exporter/auth.yml
+      - --config.expand-environment-variables
+    environment:
+      SNMP_COMMUNITY: ${SNMP_COMMUNITY:-public}
+    volumes:
+      - ./infra/snmp/auth.yml:/etc/snmp_exporter/auth.yml:ro
     expose: ["9116"]
     networks: [monitoring]
+
+  telegraf-vsphere:
+    image: telegraf:1.36-alpine
+    profiles: [vmware]
+    restart: unless-stopped
+    environment:
+      VSPHERE_URL: ${VSPHERE_URL:-https://esxi.example.local/sdk}
+      VSPHERE_USERNAME: ${VSPHERE_USERNAME:-monitoring-readonly}
+      VSPHERE_PASSWORD: ${VSPHERE_PASSWORD:-replace-vsphere-readonly-password}
+      VSPHERE_INSECURE_SKIP_VERIFY: ${VSPHERE_INSECURE_SKIP_VERIFY:-false}
+    volumes:
+      - ./infra/telegraf/vsphere.conf:/etc/telegraf/telegraf.conf:ro
+    expose: ["9273"]
+    networks: [monitoring, egress]
 
   librenms-db:
     image: mariadb:11.8
@@ -224,17 +251,26 @@ services:
   librenms-redis:
     image: redis:8.2-alpine
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${LIBRENMS_REDIS_PASSWORD:-replace-librenms-redis-password}"]
+    command: ["redis-server", "--requirepass", "${LIBRENMS_REDIS_PASSWORD:-replace-librenms-redis-password}"]
     environment:
       REDIS_PASSWORD: ${LIBRENMS_REDIS_PASSWORD:-replace-librenms-redis-password}
-    volumes:
-      - librenms_redis_data:/data
+    tmpfs:
+      - /data
     healthcheck:
       test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
       interval: 10s
       timeout: 5s
       retries: 10
     networks: [internal]
+
+  librenms-rrd-init:
+    image: alpine:3.22
+    restart: "no"
+    command: ["sh", "-c", "chown -R 1000:1000 /data/db /data/journal"]
+    volumes:
+      - librenms_rrd_data:/data/db
+      - librenms_rrd_journal:/data/journal
+    network_mode: none
 
   librenms-rrdcached:
     image: crazymax/rrdcached:1.9.0-r4
@@ -251,6 +287,11 @@ services:
     volumes:
       - librenms_rrd_data:/data/db
       - librenms_rrd_journal:/data/journal
+    tmpfs:
+      - /var/run/rrdcached
+    depends_on:
+      librenms-rrd-init:
+        condition: service_completed_successfully
     networks: [internal]
 
   librenms:
@@ -314,7 +355,6 @@ volumes:
   grafana_data:
   alertmanager_data:
   librenms_db_data:
-  librenms_redis_data:
   librenms_rrd_data:
   librenms_rrd_journal:
   librenms_data:

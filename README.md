@@ -67,6 +67,62 @@ Prasyarat: Docker Engine dengan Compose v2.
 
 Nilai bawaan Compose hanya untuk pengembangan. Saat `APP_ENV=production`, backend menolak berjalan bila secret aplikasi atau password admin masih memakai nilai development.
 
+## Model instalasi terpusat
+
+Monitora, PostgreSQL, Prometheus, dan Grafana dipasang satu kali pada satu VM pusat. Jangan
+memasang seluruh stack pada setiap VM aplikasi. Mesin yang dipantau hanya memerlukan exporter:
+
+```text
+VM Monitora pusat
+  |-- windows_exporter --> VM Windows 1..9
+  |-- node_exporter ----> VM/server Linux
+  |-- SNMP/ICMP --------> MikroTik dan perangkat jaringan
+  `-- API vSphere ------> ESXi/vCenter (opsional)
+```
+
+Deployment produksi yang direkomendasikan adalah satu VM Linux dengan Docker Compose. Mode
+Windows native tersedia untuk kantor yang belum dapat menyediakan VM Linux; mode tersebut tetap
+menjalankan portal, PostgreSQL, Prometheus, Grafana, HTTP/TCP, ICMP, SNMP, dan diagnosis ISP,
+tetapi tidak menjalankan LibreNMS atau discovery topologi tingkat lanjut.
+
+### Agen pada VM Windows
+
+Jalankan sebagai Administrator pada setiap VM Windows, dengan alamat server monitoring pusat:
+
+```powershell
+.\scripts\install-windows-agent.ps1 -MonitoringServer 192.168.1.10
+```
+
+Skrip memasang `windows_exporter` sebagai Windows service dan membuka TCP 9182 hanya dari alamat
+server pusat. Setelah itu tambahkan perangkat bertipe **Server Windows** dengan target
+`IP_VM:9182` melalui menu Perangkat.
+
+Untuk ikut memantau service aplikasi penting, berikan regex nama service Windows (bukan display
+name), misalnya:
+
+```powershell
+.\scripts\install-windows-agent.ps1 `
+  -MonitoringServer 192.168.1.10 `
+  -ServiceIncludePattern "windows_exporter|MSSQLSERVER|AplikasiKantor"
+```
+
+### Server pusat Windows tanpa Docker
+
+Pada VM Windows pusat, buka PowerShell sebagai Administrator lalu jalankan:
+
+```powershell
+.\scripts\install-windows.ps1 `
+  -PostgresSuperPassword "password-postgres-yang-sudah-dibuat" `
+  -AdminUsername admin
+```
+
+Installer online memasang prasyarat, memverifikasi checksum binary Prometheus, menjalankan migrasi,
+dan mendaftarkan seluruh proses sebagai Windows service. Data persisten disimpan di
+`C:\ProgramData\Monitora`. Buka `http://IP_VM:8080` setelah instalasi selesai.
+
+Untuk produksi baru, gunakan jalur Linux + Docker bila memungkinkan; Windows native merupakan
+jalur kompatibilitas untuk infrastruktur yang sudah berjalan.
+
 ## Alur penggunaan
 
 1. Admin membuka menu **Perangkat** dan menambah target.

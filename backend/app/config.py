@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 
     app_name: str = "Pantau Infrastruktur"
     app_env: str = "development"
+    deployment_profile: str = "docker_full"
     app_secret_key: str = "development-secret-change-before-production"
     access_token_expire_minutes: int = 480
     cookie_secure: bool = False
@@ -21,6 +22,12 @@ class Settings(BaseSettings):
     credential_encryption_key: str = ""
     network_sync_interval_seconds: int = 60
     network_stale_after_seconds: int = 180
+    enable_librenms: bool = True
+    enable_vmware: bool = False
+    enable_advanced_topology: bool = True
+    internet_probe_ip_targets: str = "1.1.1.1,8.8.8.8"
+    internet_probe_dns_target: str = "1.1.1.1"
+    internet_probe_https_target: str = "https://www.google.com/generate_204"
     seed_demo_data: bool = False
 
     admin_username: str = "admin"
@@ -30,6 +37,10 @@ class Settings(BaseSettings):
     @property
     def allowed_host_list(self) -> list[str]:
         return [item.strip() for item in self.allowed_hosts.split(",") if item.strip()]
+
+    @property
+    def native_windows(self) -> bool:
+        return self.deployment_profile == "windows_native"
 
 
 @lru_cache

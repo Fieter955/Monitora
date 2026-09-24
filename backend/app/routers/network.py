@@ -2,10 +2,12 @@ from datetime import UTC, datetime
 from typing import Literal
 from uuid import uuid4
 
+import httpx
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import select
 
+from app.config import settings
 from app.dependencies import AdminUser, CurrentUser, DbSession
 from app.librenms import LibreNMSUnavailable, librenms_client
 from app.models import (
@@ -35,6 +37,7 @@ from app.schemas import (
     DiscoveryResult,
     ManualLinkCreate,
     PortExpectationsUpdate,
+    SnmpInterfaceRead,
     TopologyEdge,
     TopologyNode,
     TopologyRead,
@@ -42,6 +45,39 @@ from app.schemas import (
 from app.security import decrypt_credentials
 
 router = APIRouter(tags=["network visibility"])
+
+
+def librenms_enabled() -> bool:
+    return settings.enable_librenms and not settings.native_windows
+
+
+def sync_prometheus_interfaces(device: Device, db: DbSession) -> list[NetworkPort]:
+    interfaces = prometheus_client.snmp_interfaces(device.prometheus_target)
+    existing = {
+        item.source_port_id: item
+        for item in db.scalars(select(NetworkPort).where(NetworkPort.device_id == device.id))
+    }
+    ports: list[NetworkPort] = []
+    now = datetime.now(UTC)
+    for interface in interfaces:
+        port = existing.get(interface.if_index)
+        if port is None:
+            port = NetworkPort(device_id=device.id, source_port_id=interface.if_index)
+            db.add(port)
+        port.if_index = interface.if_index
+        port.name = interface.if_name
+        port.description = interface.if_description
+        port.alias = interface.if_alias
+        port.oper_status = (
+            "up" if interface.oper_up else "down" if interface.oper_up is False else "unknown"
+        )
+        port.last_seen_at = now
+        ports.append(port)
+    if ports:
+        device.capabilities = {**(device.capabilities or {}), "snmp": True, "if_mib": True}
+        device.monitoring_level = "basic"
+        db.flush()
+    return ports
 
 
 def get_device_or_404(device_id: int, db: DbSession) -> Device:
@@ -107,6 +143,16 @@ def test_connection(
             latency_ms=result.latency_ms,
         )
     if payload.kind.value in NETWORK_KINDS:
+        if not librenms_enabled():
+            return ConnectionTestResult(
+                reachable=True,
+                provider_available=True,
+                capabilities=["snmp", "if_mib"],
+                message=(
+                    "Target akan diuji oleh SNMP Exporter. Setelah disimpan, tunggu satu siklus "
+                    "Prometheus sebelum memilih interface WAN."
+                ),
+            )
         if not librenms_client.configured:
             return ConnectionTestResult(
                 reachable=False,
@@ -158,11 +204,28 @@ def discover_device(device_id: int, db: DbSession, _: AdminUser) -> DiscoveryRes
             return DiscoveryResult(
                 device_id=device.id,
                 state="ready",
-                message="Monitoring ICMP aktif. Perangkat ini tidak menjalankan discovery SNMP atau port.",
+                message=(
+                    "Monitoring ICMP aktif. Perangkat ini tidak menjalankan "
+                    "discovery SNMP atau port."
+                ),
                 capabilities=["icmp"],
                 ports=[],
             )
         if device.kind in NETWORK_KINDS:
+            if not librenms_enabled():
+                ports = sync_prometheus_interfaces(device, db)
+                db.commit()
+                return DiscoveryResult(
+                    device_id=device.id,
+                    state="ready" if ports else "partial",
+                    message=(
+                        f"{len(ports)} interface SNMP ditemukan."
+                        if ports
+                        else "Target tersimpan. Tunggu 30-60 detik lalu jalankan discovery kembali."
+                    ),
+                    capabilities=list((device.capabilities or {}).keys()),
+                    ports=[port_to_read(port, None) for port in ports],
+                )
             librenms_id = device.librenms_device_id
             if librenms_id is None:
                 ports = sync_network_device(device, db)
@@ -212,6 +275,28 @@ def discover_device(device_id: int, db: DbSession, _: AdminUser) -> DiscoveryRes
             capabilities=[],
             ports=[],
         )
+    except (httpx.HTTPError, RuntimeError, ValueError) as exc:
+        db.rollback()
+        return DiscoveryResult(
+            device_id=device.id,
+            state="unavailable",
+            message=f"Prometheus/SNMP Exporter belum siap: {exc}",
+            capabilities=[],
+            ports=[],
+        )
+
+
+@router.get("/devices/{device_id}/snmp-interfaces", response_model=list[SnmpInterfaceRead])
+def snmp_interfaces(device_id: int, db: DbSession, _: AdminUser) -> list[SnmpInterfaceRead]:
+    device = get_device_or_404(device_id, db)
+    if device.prometheus_job != "snmp":
+        raise HTTPException(status_code=422, detail="Perangkat tidak menggunakan monitoring SNMP")
+    try:
+        return prometheus_client.snmp_interfaces(device.prometheus_target)
+    except (httpx.HTTPError, RuntimeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=503, detail=f"Data interface SNMP belum tersedia: {exc}"
+        ) from exc
 
 
 @router.get("/devices/{device_id}/discovery", response_model=DiscoveryResult)

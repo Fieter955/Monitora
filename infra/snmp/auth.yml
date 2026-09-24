@@ -1,0 +1,4 @@
+auths:
+  office_v2:
+    version: 2
+    community: ${SNMP_COMMUNITY}

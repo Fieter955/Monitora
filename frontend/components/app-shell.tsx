@@ -5,19 +5,19 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import type { User } from "@/lib/types";
+import type { SystemCapabilities, User } from "@/lib/types";
 import { Icon } from "./icons";
 
 const navigation = [
   { href: "/", label: "Ringkasan", icon: "dashboard" as const },
   { href: "/peta", label: "Pencari Gangguan", icon: "map" as const },
-  { href: "/topologi", label: "Jalur Koneksi", icon: "topology" as const },
+  { href: "/topologi", label: "Jalur Koneksi", icon: "topology" as const, advanced: true },
   { href: "/perangkat", label: "Perangkat", icon: "devices" as const },
   { href: "/alert", label: "Alert", icon: "alerts" as const },
   { href: "/laporan", label: "Laporan", icon: "reports" as const },
 ];
 
-const grafanaDashboardUrl = "/grafana/d/infrastructure-overview/ringkasan-infrastruktur?kiosk&_dash.hideTimePicker=true&_dash.hideVariables=true&_dash.hideLinks=true";
+const grafanaDashboardUrl = "/grafana/d/infrastructure-overview/ringkasan-infrastruktur?kiosk&_dash.hideTimePicker=true&_dash.hideVariables=true";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -25,10 +25,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [capabilities, setCapabilities] = useState<SystemCapabilities | null>(null);
 
   useEffect(() => {
-    api<User>("/auth/me")
-      .then(setUser)
+    Promise.all([api<User>("/auth/me"), api<SystemCapabilities>("/system/capabilities")])
+      .then(([currentUser, currentCapabilities]) => {
+        setUser(currentUser);
+        setCapabilities(currentCapabilities);
+      })
       .catch(() => router.replace("/login"))
       .finally(() => setLoading(false));
   }, [router]);
@@ -59,7 +63,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div><strong>Monitora</strong><small>Infrastruktur TI</small></div>
         </div>
         <nav className="main-nav">
-          {navigation.map((item) => {
+          {navigation.filter((item) => !("advanced" in item) || capabilities?.advanced_topology).map((item) => {
             const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
             return (
               <Link
@@ -74,14 +78,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        {user.role === "admin" && (
-          <div className="sidebar-footer">
-            <a href={grafanaDashboardUrl} target="_blank" rel="noreferrer">
-              <Icon name="external" /><span>Buka Grafana</span>
-            </a>
-            <p>Data teknis dan grafik historis</p>
-          </div>
-        )}
+        <div className="sidebar-footer">
+          <a href={grafanaDashboardUrl} target="_blank" rel="noreferrer">
+            <Icon name="external" /><span>Buka Grafana</span>
+          </a>
+          <p>Data teknis dan grafik historis</p>
+        </div>
       </aside>
 
       {menuOpen && <button className="sidebar-scrim" aria-label="Tutup navigasi" onClick={() => setMenuOpen(false)} />}

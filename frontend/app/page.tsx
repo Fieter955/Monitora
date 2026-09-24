@@ -67,6 +67,15 @@ export default function DashboardPage() {
           <div><strong>Data monitoring belum tersedia</strong><p>{summary.message}</p></div>
         </div>
       )}
+      {summary?.internet_health && summary.internet_health.status !== "healthy" && (
+        <div className={`notice ${summary.internet_health.status === "critical" ? "notice-danger" : "notice-warning"}`} role="alert">
+          <span className="notice-mark" aria-hidden="true">!</span>
+          <div>
+            <strong>{internetTitle(summary.internet_health.cause)}</strong>
+            <p>{summary.internet_health.summary} Monitoring LAN dan VM internal tetap berjalan.</p>
+          </div>
+        </div>
+      )}
       {summary && summary.offline_devices > 0 && (
         <div className="notice notice-danger" role="alert">
           <span className="notice-mark" aria-hidden="true">!</span>
@@ -154,4 +163,13 @@ function AlertRow({alert}: {alert: AlertItem}) {
       <div><strong>{alert.name}</strong><p>{alert.summary || alert.instance}</p><time>{alert.active_since ? new Intl.DateTimeFormat("id-ID", {dateStyle: "medium", timeStyle: "short"}).format(new Date(alert.active_since)) : "Waktu belum tersedia"}</time></div>
     </article>
   );
+}
+
+function internetTitle(cause: NonNullable<MonitoringSummary["internet_health"]>["cause"]) {
+  if (cause === "lan_or_router") return "Gateway lokal bermasalah";
+  if (cause === "wan_link") return "Link WAN MikroTik terputus";
+  if (cause === "isp_upstream") return "Gangguan ISP terindikasi";
+  if (cause === "dns") return "Layanan DNS bermasalah";
+  if (cause === "https") return "Pemeriksaan HTTPS bermasalah";
+  return "Diagnosis internet belum lengkap";
 }

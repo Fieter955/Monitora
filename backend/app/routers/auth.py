@@ -48,3 +48,8 @@ def me(user: CurrentUser) -> User:
 def authorize_admin(_: AdminUser) -> Response:
     """Authorize an internal reverse-proxy subrequest for admin-only services."""
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def authorize_session(_: CurrentUser) -> Response:
+    """Authorize an internal reverse-proxy subrequest for any signed-in user."""
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

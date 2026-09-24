@@ -8,11 +8,11 @@ import {EmptyState, StatusBadge} from "@/components/status";
 import {api, ApiError} from "@/lib/api";
 import type {
   CredentialSecret, Device, DeviceInput, DeviceKind, DiscoveryResult,
-  Location, NetworkPort, PortExpectation, User,
+  Location, NetworkPort, PortExpectation, SystemCapabilities, User,
 } from "@/lib/types";
 
 const kindLabels: Record<DeviceKind, string> = {
-  linux_server: "Server Linux", router: "Router", switch: "Switch",
+  linux_server: "Server Linux", windows_server: "Server Windows", router: "Router", switch: "Switch",
   access_point: "Access point", cctv: "CCTV", hub: "Hub",
   website: "Website", other: "Komputer / client",
 };
@@ -22,6 +22,7 @@ const initialInput: DeviceInput = {
   prometheus_target: "", notes: "", is_active: true, room_id: null,
   credential_profile_id: null, stream_url: "", floorplan_x: null, floorplan_y: null,
   asset_tag: null, physical_group: "", physical_position: "", network_role: "endpoint",
+  isp_name: "", wan_if_name: "", wan_if_index: null,
 };
 
 export default function DevicesPage() {
@@ -32,12 +33,14 @@ export default function DevicesPage() {
   const [editing, setEditing] = useState<Device | null | undefined>(undefined);
   const [message, setMessage] = useState("");
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  const [capabilities, setCapabilities] = useState<SystemCapabilities | null>(null);
 
   const load = useCallback(async () => {
-    const [deviceData, me, locationData] = await Promise.all([
+    const [deviceData, me, locationData, capabilityData] = await Promise.all([
       api<Device[]>("/devices"), api<User>("/auth/me"), api<Location[]>("/locations"),
+      api<SystemCapabilities>("/system/capabilities"),
     ]);
-    setDevices(deviceData); setUser(me); setLocations(locationData); setLoading(false);
+    setDevices(deviceData); setUser(me); setLocations(locationData); setCapabilities(capabilityData); setLoading(false);
     const requested = Number(new URLSearchParams(window.location.search).get("device"));
     if (requested) setSelectedDevice(deviceData.find((item) => item.id === requested) ?? null);
   }, []);
@@ -54,6 +57,7 @@ export default function DevicesPage() {
     <PageHeader eyebrow="Inventaris" title="Perangkat" description="Daftarkan seluruh perangkat, uji aksesnya, lalu tentukan port mana yang seharusnya terhubung."
       actions={isAdmin ? <button className="button button-primary" onClick={() => setEditing(null)}><Icon name="plus"/>Tambah perangkat</button> : undefined}/>
     {message && <div className="notice" role="status"><span className="notice-mark">i</span><div><strong>Inventaris diperbarui</strong><p>{message}</p></div></div>}
+    {capabilities?.deployment_profile === "windows_native" && <div className="notice"><span className="notice-mark">i</span><div><strong>Mode Windows native</strong><p>Monitoring host, website, ICMP, SNMP, ISP, dan Grafana aktif. Discovery topologi LibreNMS tidak tersedia pada profil ini.</p></div></div>}
     <section className="panel" aria-labelledby="device-table-title">
       <div className="panel-header"><div><h2 id="device-table-title">Daftar perangkat</h2><p>{devices.length} perangkat aktif dalam inventaris</p></div></div>
       {loading ? <div className="empty-state">Memuat inventaris…</div> : devices.length === 0 ? <EmptyState title="Inventaris masih kosong" description="Tambahkan switch, router, AP, CCTV, server, atau perangkat pertama."/> : <div className="table-wrap"><table className="data-table"><thead><tr><th>Perangkat</th><th>Jenis</th><th>Monitoring</th><th>Lokasi</th><th>Status</th>{isAdmin && <th><span className="visually-hidden">Tindakan</span></th>}</tr></thead><tbody>{devices.map((device) => <tr key={device.id}>
@@ -76,6 +80,7 @@ function DeviceWizard({device, locations, onClose, onSaved}: {device: Device | n
     floorplan_x: device.floorplan_x, floorplan_y: device.floorplan_y,
     asset_tag: device.asset_tag, physical_group: device.physical_group,
     physical_position: device.physical_position, network_role: device.network_role,
+    isp_name: device.isp_name, wan_if_name: device.wan_if_name, wan_if_index: device.wan_if_index,
   } : initialInput);
   const [credential, setCredential] = useState<CredentialSecret>({name: device ? `Akses ${device.name}` : "", kind: "snmp_v2c", community: ""});
   const [step, setStep] = useState(1);
@@ -88,7 +93,7 @@ function DeviceWizard({device, locations, onClose, onSaved}: {device: Device | n
 
   function setField<K extends keyof DeviceInput>(key: K, value: DeviceInput[K]) { setForm((current) => ({...current, [key]: value})); }
   function changeKind(kind: DeviceKind) {
-    const prometheus_job = kind === "linux_server" ? "node" : kind === "website" ? "blackbox" : kind === "switch" ? "snmp" : ["router", "access_point", "other"].includes(kind) ? "icmp" : kind === "cctv" ? "cctv" : "none";
+    const prometheus_job = kind === "linux_server" ? "node" : kind === "windows_server" ? "windows" : kind === "website" ? "blackbox" : kind === "switch" ? "snmp" : ["router", "access_point", "other"].includes(kind) ? "icmp" : kind === "cctv" ? "cctv" : "none";
     setForm((current) => ({...current, kind, prometheus_job, credential_profile_id: prometheus_job === "icmp" ? null : current.credential_profile_id, prometheus_target: current.prometheus_target || current.address}));
     setCredential((current) => ({...current, kind: kind === "cctv" ? "onvif_rtsp" : "snmp_v2c"}));
   }
@@ -121,6 +126,9 @@ function DeviceWizard({device, locations, onClose, onSaved}: {device: Device | n
   async function finish() {
     if (!savedDevice) return; setSaving(true); setError("");
     try {
+      if (form.network_role === "gateway" && form.prometheus_job === "snmp") {
+        await api(`/devices/${savedDevice.id}`, {method:"PATCH", body:JSON.stringify({isp_name:form.isp_name,wan_if_name:form.wan_if_name,wan_if_index:form.wan_if_index})});
+      }
       if (discovery?.ports.length) await api(`/devices/${savedDevice.id}/port-expectations`, {method:"PUT", body:JSON.stringify({ports:discovery.ports.map((port) => ({port_id:port.id, mode:portModes[port.id] ?? "spare", expected_device_id:null, label:port.alias || port.name}))})});
       await onSaved(`${savedDevice.name} tersimpan. Selanjutnya tempatkan melalui Peta Lokasi.`);
     } catch (reason) { setError(reason instanceof ApiError ? reason.message : "Aturan port tidak dapat disimpan"); }
@@ -133,7 +141,7 @@ function DeviceWizard({device, locations, onClose, onSaved}: {device: Device | n
       <form onSubmit={saveAndDiscover}>{error && <div className="form-error" role="alert">{error}</div>}
         {step === 1 && <IdentityStep form={form} locations={locations} setField={setField} changeKind={changeKind}/>} 
         {step === 2 && <AccessStep form={form} credential={credential} setField={setField} setCredential={setCredential} testResult={testResult}/>} 
-        {step === 3 && <PortConfirmation discovery={discovery} portModes={portModes} setPortModes={setPortModes}/>} 
+        {step === 3 && <PortConfirmation discovery={discovery} portModes={portModes} setPortModes={setPortModes} gateway={form.network_role === "gateway"} ispName={form.isp_name} wanIfIndex={form.wan_if_index} setIspName={(value)=>setField("isp_name",value)} setWan={(port)=>{setField("wan_if_index",port.if_index);setField("wan_if_name",port.name);}}/>}
         <div className="form-actions"><button className="button" type="button" onClick={step === 1 ? onClose : () => setStep(step-1)}>{step === 1 ? "Batal":"Kembali"}</button>{step === 1 ? <button className="button button-primary" type="button" onClick={() => form.name && form.address ? setStep(2) : setError("Nama dan alamat perangkat wajib diisi.")}>Lanjut ke akses</button> : step === 2 ? <><button className="button" type="button" onClick={() => void testConnection()}>Uji koneksi</button><button className="button button-primary" disabled={saving}>{saving ? "Menyimpan…" : form.prometheus_job === "icmp" ? "Simpan & aktifkan ICMP" : "Simpan & temukan port"}</button></> : <button className="button button-primary" type="button" onClick={() => void finish()} disabled={saving}>{saving ? "Menyimpan…":"Simpan aturan port"}</button>}</div>
       </form>
     </div>
@@ -150,7 +158,7 @@ function AccessStep({form, credential, setField, setCredential, testResult}: {fo
 }
 
 function SecretField({id,label,value,onChange,password=false}:{id:string;label:string;value?:string;onChange:(value:string)=>void;password?:boolean}) { return <div className="field"><label htmlFor={id}>{label}</label><input id={id} type={password?"password":"text"} value={value??""} onChange={(e)=>onChange(e.target.value)}/></div>; }
-function PortConfirmation({discovery,portModes,setPortModes}:{discovery:DiscoveryResult|null;portModes:Record<number,PortExpectation>;setPortModes:React.Dispatch<React.SetStateAction<Record<number,PortExpectation>>>}) { if(!discovery)return <EmptyState title="Menunggu discovery" description="Sistem sedang memeriksa kemampuan perangkat."/>; return <div><div className={`notice ${discovery.state==="unavailable"?"notice-warning":""}`}><span className="notice-mark">i</span><div><strong>{discovery.state==="ready"?"Discovery selesai":"Discovery sebagian"}</strong><p>{discovery.message}</p></div></div>{discovery.ports.length===0?<EmptyState title="Tidak ada port untuk dikonfirmasi" description="Simpan perangkat dan audit kembali setelah mesin monitoring tersedia."/>:<div className="port-config-list">{discovery.ports.map((port)=><PortConfig key={port.id} port={port} mode={portModes[port.id]??"spare"} onChange={(mode)=>setPortModes((current)=>({...current,[port.id]:mode}))}/>)}</div>}</div>; }
+function PortConfirmation({discovery,portModes,setPortModes,gateway,ispName,wanIfIndex,setIspName,setWan}:{discovery:DiscoveryResult|null;portModes:Record<number,PortExpectation>;setPortModes:React.Dispatch<React.SetStateAction<Record<number,PortExpectation>>>;gateway:boolean;ispName:string;wanIfIndex:number|null;setIspName:(value:string)=>void;setWan:(port:NetworkPort)=>void}) { if(!discovery)return <EmptyState title="Menunggu discovery" description="Sistem sedang memeriksa kemampuan perangkat."/>; return <div><div className={`notice ${discovery.state==="unavailable"?"notice-warning":""}`}><span className="notice-mark">i</span><div><strong>{discovery.state==="ready"?"Discovery selesai":"Discovery sebagian"}</strong><p>{discovery.message}</p></div></div>{gateway&&<div className="form-grid"><div className="field"><label htmlFor="isp-name">Nama ISP</label><input id="isp-name" value={ispName} onChange={(event)=>setIspName(event.target.value)} placeholder="Contoh: Telkom"/></div><div className="field"><label htmlFor="wan-interface">Interface penerima ISP</label><select id="wan-interface" value={wanIfIndex??""} onChange={(event)=>{const port=discovery.ports.find((item)=>item.if_index===Number(event.target.value));if(port)setWan(port);}}><option value="">Pilih interface WAN</option>{discovery.ports.filter((port)=>port.if_index!=null).map((port)=><option value={port.if_index??""} key={port.id}>{port.name}{port.alias?` — ${port.alias}`:""}</option>)}</select><small>Pilih port MikroTik yang menerima koneksi ISP, misalnya ether1 atau pppoe-out1.</small></div></div>}{discovery.ports.length===0?<EmptyState title="Tidak ada port untuk dikonfirmasi" description="Simpan perangkat dan audit kembali setelah mesin monitoring tersedia."/>:<div className="port-config-list">{discovery.ports.map((port)=><PortConfig key={port.id} port={port} mode={portModes[port.id]??"spare"} onChange={(mode)=>setPortModes((current)=>({...current,[port.id]:mode}))}/>)}</div>}</div>; }
 function PortConfig({port,mode,onChange}:{port:NetworkPort;mode:PortExpectation;onChange:(mode:PortExpectation)=>void}) { return <div className="port-config"><div><strong>{port.name}</strong><span>{port.alias||port.description||"Tanpa deskripsi"}</span></div><StatusBadge status={port.oper_status==="up"?"online":"unknown"} label={port.oper_status==="up"?"Sedang aktif":"Kosong/down"}/><select aria-label={`Fungsi ${port.name}`} value={mode} onChange={(e)=>onChange(e.target.value as PortExpectation)}><option value="required">Wajib terisi</option><option value="spare">Cadangan</option><option value="ignored">Diabaikan</option></select></div>; }
 
 function locationPath(location:Location,locations:Location[]){const names=[location.name];let parent=location.parent_id;while(parent){const item=locations.find((entry)=>entry.id===parent);if(!item)break;names.unshift(item.name);parent=item.parent_id;}return names.join(" / ");}

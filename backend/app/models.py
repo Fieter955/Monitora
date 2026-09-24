@@ -31,6 +31,7 @@ class UserRole(StrEnum):
 
 class DeviceKind(StrEnum):
     LINUX_SERVER = "linux_server"
+    WINDOWS_SERVER = "windows_server"
     ROUTER = "router"
     SWITCH = "switch"
     ACCESS_POINT = "access_point"
@@ -164,6 +165,9 @@ class Device(Base):
     physical_group: Mapped[str] = mapped_column(String(160), default="")
     physical_position: Mapped[str] = mapped_column(String(160), default="")
     network_role: Mapped[str] = mapped_column(String(24), default=NetworkRole.ENDPOINT.value)
+    isp_name: Mapped[str] = mapped_column(String(160), default="")
+    wan_if_name: Mapped[str] = mapped_column(String(160), default="")
+    wan_if_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

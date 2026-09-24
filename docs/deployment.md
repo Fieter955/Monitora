@@ -6,6 +6,10 @@ Dengan LibreNMS, MariaDB, Redis, dan RRDCached, gunakan 4 vCPU, RAM 8–12 GB, s
 
 Gunakan satu VPS/VM Linux terpisah dengan akses SSH administrator. Kapasitas akhir tetap harus dievaluasi dari jumlah interface, frekuensi polling, dan retensi data setelah masa uji coba.
 
+Satu instalasi pusat dapat memantau banyak VM. Untuk sembilan VM Windows pada satu ESXi, pasang
+Monitora hanya pada satu VM monitoring, lalu pasang `windows_exporter` pada setiap guest. Monitoring
+MikroTik/ISP juga cukup dijalankan oleh VM pusat.
+
 Shared hosting dengan akun cPanel saja bukan tempat yang cocok untuk stack ini. cPanel Application Manager dapat menjalankan Node.js/Python bila provider mengaktifkannya, tetapi portal juga membutuhkan Prometheus, Grafana, exporter, volume persisten, serta jaringan internal. Dokumentasi resmi cPanel menjelaskan deployment Node/Python melalui Passenger dan container EA4 berbasis Podman, yang tetap membutuhkan dukungan administrator:
 
 - [cPanel Application Manager](https://docs.cpanel.net/cpanel/software/application-manager/)
@@ -49,6 +53,34 @@ Gunakan secret berbeda untuk `APP_SECRET_KEY` dan `CREDENTIAL_ENCRYPTION_KEY`. G
 5. Jalankan discovery dari wizard Perangkat, konfirmasi fungsi port, lalu uji dengan mencabut satu koneksi wajib.
 
 Fast ping digunakan untuk target status sekitar satu menit. Polling seluruh interface satu menit hanya boleh diaktifkan setelah halaman poller LibreNMS membuktikan semua pekerjaan selesai di bawah 60 detik. Jika tidak, gunakan polling port lima menit dan pertahankan fast ping satu menit.
+
+## Monitoring Windows, MikroTik, dan ISP
+
+- Daftarkan guest Windows sebagai `Server Windows` dengan target `IP:9182`.
+- Batasi firewall TCP 9182 agar hanya menerima koneksi dari server monitoring.
+- Aktifkan SNMP read-only pada MikroTik dan batasi UDP 161 dari server monitoring saja.
+- Tandai MikroTik sebagai `Gateway ISP`, jalankan discovery, lalu pilih interface yang menerima ISP.
+- Diagnosis internet menggabungkan status gateway, link WAN, dua target IP publik, DNS, dan HTTPS.
+  Traffic WAN nol tidak dianggap sebagai bukti tunggal gangguan.
+- Alert gangguan ISP menghambat alert website eksternal turunannya, tetapi monitoring LAN dan VM
+  internal tetap berjalan.
+
+## Integrasi ESXi opsional
+
+Profil `vmware` memakai Telegraf dan membutuhkan vSphere 7 atau lebih baru. Buat akun khusus pada
+ESXi/vCenter dengan role `Read-only`; jangan gunakan akun root. Isi `VSPHERE_URL`,
+`VSPHERE_USERNAME`, dan `VSPHERE_PASSWORD`, kemudian aktifkan target dan profil:
+
+Set `ENABLE_VMWARE=true`, lalu jalankan preflight dan aktivasi berikut:
+
+```powershell
+.\scripts\enable-vmware.ps1
+```
+
+Skrip baru mengaktifkan target Prometheus setelah koneksi dan pengambilan metrik uji berhasil.
+
+Jika versi ESXi belum diketahui atau preflight Telegraf gagal, biarkan profil ini nonaktif. Data
+CPU/RAM/disk dari sembilan guest Windows tetap tersedia melalui `windows_exporter`.
 
 `BIND_ADDRESS=127.0.0.1` membuat gateway Compose hanya dapat dijangkau reverse proxy pada host. Next.js juga merekomendasikan reverse proxy di depan server ketika self-hosting: [Next.js self-hosting](https://nextjs.org/docs/app/guides/self-hosting).
 

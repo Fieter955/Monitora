@@ -11,7 +11,7 @@ groups:
           description: "Prometheus gagal mengambil metrik selama lebih dari 2 menit."
 
       - alert: PenggunaanCPUtinggi
-        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        expr: (100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85) or (100 - (avg by(instance) (rate(windows_cpu_time_total{mode="idle"}[5m])) * 100) > 85)
         for: 10m
         labels:
           severity: warning
@@ -20,7 +20,7 @@ groups:
           description: "Periksa proses aktif sebelum kapasitas layanan terganggu."
 
       - alert: PenggunaanMemoriTinggi
-        expr: 100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 90
+        expr: (100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 90) or (100 * (1 - windows_memory_available_bytes / windows_cs_physical_memory_bytes) > 90)
         for: 10m
         labels:
           severity: warning
@@ -51,6 +51,7 @@ groups:
         for: 2m
         labels:
           severity: critical
+          dependency: external
         annotations:
           summary: "Layanan {{ $labels.instance }} tidak tersedia"
           description: "Pemeriksaan HTTP gagal selama lebih dari 2 menit."
@@ -63,6 +64,35 @@ groups:
         annotations:
           summary: "{{ $labels.instance }} tidak menjawab ping"
           description: "Perangkat LAN tidak dapat dijangkau dari server monitoring."
+
+      - alert: GangguanISP
+        expr: max(probe_success{job="internet-ip"}) == 0 and on() max(probe_success{job="gateway"}) == 1
+        for: 3m
+        labels:
+          severity: critical
+          scope: internet
+        annotations:
+          summary: "Jalur internet dari gateway tidak tersedia"
+          description: "Gateway lokal aktif, tetapi target internet independen gagal dijangkau."
+
+      - alert: GangguanDNS
+        expr: probe_success{job="internet-dns"} == 0 and on() min(probe_success{job="internet-ip"}) == 1
+        for: 3m
+        labels:
+          severity: warning
+          scope: internet
+        annotations:
+          summary: "Resolusi DNS gagal sementara koneksi IP aktif"
+          description: "Periksa resolver DNS pada MikroTik atau penyedia layanan."
+
+      - alert: ServiceWindowsBerhenti
+        expr: windows_service_state{state="running"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Service Windows {{ $labels.name }} pada {{ $labels.instance }} berhenti"
+          description: "Service yang diekspor tidak berada dalam status running."
 
       - alert: SertifikatSegeraBerakhir
         expr: (probe_ssl_earliest_cert_expiry - time()) / 86400 < 14

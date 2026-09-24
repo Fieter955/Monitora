@@ -41,3 +41,21 @@ def test_internal_admin_authorization_requires_session(client):
     response = client.get("/internal/auth/admin")
     assert response.status_code == 401
     assert response.json()["detail"] == "Sesi tidak valid"
+
+
+def test_internal_session_authorization_accepts_admin(admin_client):
+    response = admin_client.get("/internal/auth/session")
+    assert response.status_code == 204
+    assert response.content == b""
+
+
+def test_internal_session_authorization_accepts_viewer(viewer_client):
+    response = viewer_client.get("/internal/auth/session")
+    assert response.status_code == 204
+    assert response.content == b""
+
+
+def test_internal_session_authorization_requires_session(client):
+    response = client.get("/internal/auth/session")
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Sesi tidak valid"
