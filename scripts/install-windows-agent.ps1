@@ -29,7 +29,7 @@ if ($Version -eq "0.31.8") {
 
 $arguments = @(
     "/i", $download, "/qn", "/norestart",
-    "ENABLED_COLLECTORS=cpu,cs,logical_disk,memory,net,os,service,system",
+    "ENABLED_COLLECTORS=cpu,logical_disk,memory,net,os,service,system",
     "LISTEN_PORT=9182",
     "EXTRA_FLAGS=--collector.service.include=$ServiceIncludePattern"
 )

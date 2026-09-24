@@ -282,7 +282,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "avg(100*(1-windows_memory_available_bytes/windows_cs_physical_memory_bytes))",
+          "expr": "avg(100*(1-windows_memory_available_bytes/(windows_memory_physical_total_bytes or windows_cs_physical_memory_bytes)))",
           "legendFormat": "Memori",
           "instant": true,
           "refId": "A"
@@ -423,7 +423,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "100*(1-windows_memory_available_bytes/windows_cs_physical_memory_bytes)",
+          "expr": "100*(1-windows_memory_available_bytes/(windows_memory_physical_total_bytes or windows_cs_physical_memory_bytes))",
           "instant": true,
           "legendFormat": "{{instance}}",
           "range": false,
@@ -586,7 +586,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "100*(1-windows_memory_available_bytes/windows_cs_physical_memory_bytes)",
+          "expr": "100*(1-windows_memory_available_bytes/(windows_memory_physical_total_bytes or windows_cs_physical_memory_bytes))",
           "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A"
@@ -826,7 +826,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "windows_system_system_up_time",
+          "expr": "(time() - windows_system_boot_time_timestamp) or windows_system_system_up_time",
           "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A"

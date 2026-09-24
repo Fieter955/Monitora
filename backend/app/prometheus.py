@@ -198,6 +198,8 @@ class PrometheusClient:
                 self.query(
                     "100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) "
                     "or 100 * (1 - (windows_memory_available_bytes / "
+                    "windows_memory_physical_total_bytes)) or "
+                    "100 * (1 - (windows_memory_available_bytes / "
                     "windows_cs_physical_memory_bytes))"
                 )
             )
@@ -213,6 +215,7 @@ class PrometheusClient:
             uptime = _metric_map(
                 self.query(
                     "(time() - node_boot_time_seconds) or "
+                    "(time() - windows_system_boot_time_timestamp) or "
                     "(time() - windows_system_system_up_time)"
                 )
             )
