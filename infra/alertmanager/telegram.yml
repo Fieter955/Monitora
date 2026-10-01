@@ -1,5 +1,5 @@
-# Salin ke telegram.yml, ganti chat_id dengan ID chat/grup Telegram Anda,
-# lalu jalankan: docker compose -f compose.yaml -f compose.telegram.yaml up -d alertmanager
+# Konfigurasi Alertmanager untuk notifikasi Telegram
+# Masukkan ID chat Telegram Anda pada chat_id di bawah ini.
 global:
   resolve_timeout: 5m
 

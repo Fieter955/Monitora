@@ -128,7 +128,12 @@ Alert tetap terlihat di portal tanpa konfigurasi eksternal. Untuk mengaktifkan T
    docker compose -f compose.yaml -f compose.telegram.yaml up -d alertmanager
    ```
 
-6. Uji receiver dengan alert non-produksi sebelum mengandalkannya untuk insiden nyata. Alertmanager mendukung Telegram, email, Slack, Webex, dan webhook: [notification integrations](https://prometheus.io/docs/alerting/latest/integrations/).
+6. Uji koneksi dan receiver dengan skrip:
+   ```powershell
+   .\scripts\test-telegram-alert.ps1 -DirectTest
+   .\scripts\test-telegram-alert.ps1 -AlertmanagerTest
+   ```
+   Alertmanager mendukung Telegram, email, Slack, Webex, dan webhook: [notification integrations](https://prometheus.io/docs/alerting/latest/integrations/).
 
 ## Backup dan pemulihan
 

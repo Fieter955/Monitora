@@ -3,30 +3,48 @@ groups:
     rules:
       - alert: TargetTidakTerjangkau
         expr: up == 0
-        for: 2m
+        for: 1m
         labels:
           severity: critical
         annotations:
           summary: "{{ $labels.instance }} tidak dapat dijangkau"
-          description: "Prometheus gagal mengambil metrik selama lebih dari 2 menit."
+          description: "Prometheus gagal mengambil metrik selama lebih dari 1 menit."
 
       - alert: PenggunaanCPUtinggi
-        expr: (100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85) or (100 - (avg by(instance) (rate(windows_cpu_time_total{mode="idle"}[5m])) * 100) > 85)
-        for: 10m
+        expr: (100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 80) or (100 - (avg by(instance) (rate(windows_cpu_time_total{mode="idle"}[2m])) * 100) > 80)
+        for: 2m
         labels:
           severity: warning
         annotations:
-          summary: "CPU {{ $labels.instance }} berada di atas 85%"
-          description: "Periksa proses aktif sebelum kapasitas layanan terganggu."
+          summary: "CPU {{ $labels.instance }} berada di atas 80%"
+          description: "Penggunaan CPU tinggi. Periksa proses aktif sebelum mengganggu performa server."
+
+      - alert: PenggunaanCPUKritis
+        expr: (100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 95) or (100 - (avg by(instance) (rate(windows_cpu_time_total{mode="idle"}[2m])) * 100) > 95)
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CPU {{ $labels.instance }} kritis di atas 95%"
+          description: "Kapasitas CPU hampir habis, segera periksa dan hentikan proses yang membebani sistem."
 
       - alert: PenggunaanMemoriTinggi
-        expr: (100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 90) or (100 * (1 - windows_memory_available_bytes / windows_cs_physical_memory_bytes) > 90)
-        for: 10m
+        expr: (100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 85) or (100 * (1 - windows_memory_available_bytes / windows_cs_physical_memory_bytes) > 85)
+        for: 2m
         labels:
           severity: warning
         annotations:
-          summary: "Memori {{ $labels.instance }} berada di atas 90%"
-          description: "Ketersediaan memori rendah selama lebih dari 10 menit."
+          summary: "Memori {{ $labels.instance }} berada di atas 85%"
+          description: "Ketersediaan RAM rendah. Pantau konsumsi memori layanan."
+
+      - alert: PenggunaanMemoriKritis
+        expr: (100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 95) or (100 * (1 - windows_memory_available_bytes / windows_cs_physical_memory_bytes) > 95)
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Memori {{ $labels.instance }} kritis di atas 95%"
+          description: "Ketersediaan memori sangat menipis, risiko OOM (Out Of Memory) tinggi."
 
       - alert: RuangDiskMenipis
         expr: |
@@ -38,13 +56,31 @@ groups:
               and on(instance, device, mountpoint) node_filesystem_readonly{job="node"} == 0
               and on(instance, device, mountpoint) node_filesystem_device_error{job="node"} == 0
             )
-          ) < 10
-        for: 15m
+          ) < 15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Sisa disk {{ $labels.device_name }} {{ $labels.mountpoint }} kurang dari 15%"
+          description: "Kapasitas filesystem {{ $labels.device }} pada {{ $labels.mountpoint }} mulai menipis."
+
+      - alert: RuangDiskKritis
+        expr: |
+          topk by(instance, device) (
+            1,
+            (
+              100 * node_filesystem_avail_bytes{job="node",fstype!~"autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fuse.rawBridge|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|erofs|sysfs|tmpfs|tracefs",mountpoint!~"^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+|var/lib/containers/storage/.+|parent-distro|run/desktop|usr/lib/wsl|mnt/docker-desktop-disk|mnt/host/wsl[^/]*)(/.*)?$"}
+                / node_filesystem_size_bytes{job="node",fstype!~"autofs|binfmt_misc|bpf|cgroup2?|configfs|debugfs|devpts|devtmpfs|fuse.rawBridge|fusectl|hugetlbfs|iso9660|mqueue|nsfs|overlay|proc|procfs|pstore|rpc_pipefs|securityfs|selinuxfs|squashfs|erofs|sysfs|tmpfs|tracefs",mountpoint!~"^/(dev|proc|run/credentials/.+|sys|var/lib/docker/.+|var/lib/containers/storage/.+|parent-distro|run/desktop|usr/lib/wsl|mnt/docker-desktop-disk|mnt/host/wsl[^/]*)(/.*)?$"}
+              and on(instance, device, mountpoint) node_filesystem_readonly{job="node"} == 0
+              and on(instance, device, mountpoint) node_filesystem_device_error{job="node"} == 0
+            )
+          ) < 5
+        for: 2m
         labels:
           severity: critical
         annotations:
-          summary: "Sisa disk {{ $labels.device_name }} {{ $labels.mountpoint }} kurang dari 10%"
-          description: "Filesystem {{ $labels.device }} pada {{ $labels.mountpoint }} perlu dibersihkan atau ditambah kapasitas."
+          summary: "Sisa disk {{ $labels.device_name }} {{ $labels.mountpoint }} kurang dari 5%"
+          description: "Filesystem {{ $labels.device }} pada {{ $labels.mountpoint }} kritis! Segera bersihkan atau tambah kapasitas."
 
       - alert: WebsiteTidakTersedia
         expr: probe_success{job="blackbox"} == 0

@@ -10,6 +10,7 @@ DEVICE = {
 }
 
 
+
 def test_admin_can_create_update_and_delete_device(admin_client):
     created = admin_client.post("/api/v1/devices", json=DEVICE)
     assert created.status_code == 201
