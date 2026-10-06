@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Panduan Instalasi & Monitoring Target - Monitora</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 12mm 12mm 12mm 12mm;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 8.8pt;
+      line-height: 1.42;
+      color: #1e293b;
+      background: #ffffff;
+    }
+
+    .page {
+      page-break-after: always;
+      break-after: page;
+      position: relative;
+    }
+    .page:last-of-type {
+      page-break-after: avoid;
+      break-after: avoid;
+    }
+
+    /* Header */
+    .header-card {
+      border-bottom: 2px solid #0284c7;
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header-title h1 {
+      font-size: 15pt;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.4px;
+    }
+    .header-title p {
+      font-size: 8.2pt;
+      color: #64748b;
+      margin-top: 1px;
+    }
+    .badge-doc {
+      background: #e0f2fe;
+      color: #0369a1;
+      padding: 3px 9px;
+      border-radius: 9999px;
+      font-size: 7.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border: 1px solid #bae6fd;
+    }
+
+    /* Headings */
+    h2 {
+      font-size: 10.8pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin-top: 10px;
+      margin-bottom: 5px;
+      padding-bottom: 3px;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .section-num {
+      background: #0284c7;
+      color: white;
+      font-size: 7.8pt;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+
+    p, li {
+      font-size: 8.6pt;
+      color: #334155;
+      margin-bottom: 3px;
+    }
+    ul, ol {
+      padding-left: 18px;
+      margin-bottom: 5px;
+    }
+
+    /* IP Scenario Box */
+    .scenario-box {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 8px 12px;
+      margin-bottom: 9px;
+      display: flex;
+      gap: 12px;
+    }
+    .scenario-item {
+      flex: 1;
+    }
+    .scenario-item strong {
+      display: block;
+      font-size: 7.5pt;
+      text-transform: uppercase;
+      color: #64748b;
+      letter-spacing: 0.5px;
+    }
+    .scenario-item span {
+      font-size: 9.5pt;
+      font-weight: 700;
+      color: #0f172a;
+      font-family: Consolas, monospace;
+    }
+    .scenario-item small {
+      display: block;
+      font-size: 7.2pt;
+      color: #64748b;
+    }
+
+    /* Code Block */
+    pre {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 7px 10px;
+      border-radius: 5px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 7.8pt;
+      line-height: 1.38;
+      overflow-x: auto;
+      margin-top: 3px;
+      margin-bottom: 5px;
+      border: 1px solid #1e293b;
+    }
+    code {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 7.8pt;
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 1px 3px;
+      border-radius: 3px;
+      border: 1px solid #e2e8f0;
+    }
+    pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      border: none;
+    }
+
+    /* Step Card */
+    .step-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-left: 3px solid #0284c7;
+      border-radius: 4px;
+      padding: 6px 10px;
+      margin-bottom: 6px;
+    }
+    .step-header {
+      font-weight: 700;
+      color: #0284c7;
+      font-size: 8.6pt;
+      margin-bottom: 3px;
+    }
+
+    /* Callout */
+    .callout {
+      background: #eff6ff;
+      border-left: 3px solid #3b82f6;
+      padding: 6px 10px;
+      border-radius: 4px;
+      margin: 5px 0;
+      font-size: 8.2pt;
+      color: #1e40af;
+    }
+    .callout-success {
+      background: #f0fdf4;
+      border-left: 3px solid #10b981;
+      color: #065f46;
+    }
+
+    /* Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 4px;
+      margin-bottom: 6px;
+      font-size: 8.2pt;
+    }
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 5px 8px;
+      text-align: left;
+    }
+    th {
+      background: #f1f5f9;
+      color: #334155;
+      font-weight: 700;
+    }
+    tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+
+    .footer-note {
+      margin-top: 12px;
+      padding-top: 6px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 7.5pt;
+      color: #94a3b8;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== HALAMAN 1 ==================== -->
+  <div class="page">
+    <div class="header-card">
+      <div class="header-title">
+        <h1>Panduan Instalasi Server Utama & Linux Client</h1>
+        <p>Petunjuk Konfigurasi Stack Docker Monitora dan Agent Linux Node Exporter</p>
+      </div>
+      <div class="badge-doc">Monitora Guide</div>
+    </div>
+
+    <!-- Skenario IP -->
+    <div class="scenario-box">
+      <div class="scenario-item">
+        <strong>Server Monitoring Pusat</strong>
+        <span>192.168.1.10</span>
+        <small>Docker Compose, Web Port 8080</small>
+      </div>
+      <div class="scenario-item">
+        <strong>Target 1: Linux Client</strong>
+        <span>192.168.1.20</span>
+        <small>Node Exporter Port 9100</small>
+      </div>
+      <div class="scenario-item">
+        <strong>Target 2: Windows Client</strong>
+        <span>192.168.1.30</span>
+        <small>Windows Exporter Port 9182</small>
+      </div>
+    </div>
+
+    <!-- BAGIAN 1 -->
+    <h2><span class="section-num">1</span> Instalasi Server Monitoring Utama (Linux)</h2>
+    <p>Server pusat ini menjalankan seluruh layanan inti Monitora (Next.js, FastAPI, PostgreSQL, Prometheus, Grafana) menggunakan Docker Compose.</p>
+
+    <div class="step-card">
+      <div class="step-header">Langkah 1.1: Pastikan Docker & Git Terpasang</div>
+      <pre><code>sudo apt update && sudo apt install -y docker.io docker-compose-v2 git</code></pre>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">Langkah 1.2: Masuk ke Folder Project & Siapkan Konfigurasi .env</div>
+      <pre><code>cd /opt/Monitora
+cp .env.example .env</code></pre>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">Langkah 1.3: Jalankan Stack Monitoring</div>
+      <pre><code>docker compose up -d --build
+docker compose ps</code></pre>
+      <div class="callout callout-success">
+        Aplikasi web Monitora kini sudah aktif pada: <strong>http://192.168.1.10:8080</strong> (Login default: admin / admin12345).
+      </div>
+    </div>
+
+    <!-- BAGIAN 2 -->
+    <h2><span class="section-num">2</span> Instalasi Agen di Linux Client (Target Linux)</h2>
+    <p>Pada mesin Linux target yang akan dipantau (IP: <code>192.168.1.20</code>), pasang <strong>Node Exporter</strong> untuk metrik CPU, RAM, Disk, dan Jaringan.</p>
+
+    <div class="step-card">
+      <div class="step-header">Langkah 2.1: Unduh & Pasang Binary Node Exporter</div>
+      <pre><code>wget https://github.com/prometheus/node_exporter/releases/download/v1.9.0/node_exporter-1.9.0.linux-amd64.tar.gz
+tar -xvf node_exporter-1.9.0.linux-amd64.tar.gz
+sudo mv node_exporter-1.9.0.linux-amd64/node_exporter /usr/local/bin/
+sudo useradd -rs /bin/false node_exporter</code></pre>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">Langkah 2.2: Buat Service Systemd Otomatis</div>
+      <pre><code>sudo tee /etc/systemd/system/node_exporter.service <<EOF
+[Unit]
+Description=Node Exporter
+After=network.target
+
+[Service]
+User=node_exporter
+Group=node_exporter
+Type=simple
+ExecStart=/usr/local/bin/node_exporter
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload && sudo systemctl enable --now node_exporter</code></pre>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">Langkah 2.3: Buka Firewall Port 9100 & Verifikasi</div>
+      <pre><code># Izinkan port 9100 khusus dari IP Server Monitoring
+sudo ufw allow proto tcp from 192.168.1.10 to any port 9100
+
+# Verifikasi lokal:
+curl http://localhost:9100/metrics</code></pre>
+    </div>
+
+    <div class="footer-note">
+      <span>Dokumentasi Resmi Operasional Monitora</span>
+      <span>Halaman 1 dari 4</span>
+    </div>
+  </div>
+
+
+  <!-- ==================== HALAMAN 2 ==================== -->
+  <div class="page">
+    <div class="header-card">
+      <div class="header-title">
+        <h1>Instalasi Agen di Windows Client</h1>
+        <p>Petunjuk Teknis Pemasangan Windows Exporter dan Firewall Windows</p>
+      </div>
+      <div class="badge-doc">Monitora Guide</div>
+    </div>
+
+    <!-- BAGIAN 3 -->
+    <h2><span class="section-num">3</span> Instalasi Agen di Windows Client (Target Windows)</h2>
+    <p>Pada mesin Windows target (IP: <code>192.168.1.30</code>), pasang agen <strong>Windows Exporter</strong> (port default <code>9182</code>).</p>
+
+    <div class="step-card">
+      <div class="step-header">Langkah 3.1: Buka PowerShell sebagai Administrator</div>
+      <ol>
+        <li>Klik menu <strong>Start</strong> di Windows target, ketik <strong>PowerShell</strong>.</li>
+        <li>Klik kanan pada <em>Windows PowerShell</em> lalu klik <strong>"Run as administrator"</strong>.</li>
+      </ol>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">Langkah 3.2: Eksekusi Script Instalasi Satu Klik</div>
+      <p>Salin dan tempel perintah berikut di PowerShell (sesuaikan <code>$MonitoringServer</code> ke IP server monitoring):</p>
+      <pre><code>$MonitoringServer = "192.168.1.10"
+$Version = "0.31.8"
+$Url = "https://github.com/prometheus-community/windows_exporter/releases/download/v$Version/windows_exporter-$Version-amd64.msi"
+$OutFile = "$env:TEMP\windows_exporter.msi"
+
+Write-Host "1. Mengunduh windows_exporter..."
+Invoke-WebRequest -Uri $Url -OutFile $OutFile
+
+Write-Host "2. Memasang service windows_exporter..."
+$args = @("/i", $OutFile, "/qn", "/norestart", "ENABLED_COLLECTORS=cpu,logical_disk,memory,net,os,service,system", "LISTEN_PORT=9182")
+Start-Process msiexec.exe -ArgumentList $args -Wait
+
+Write-Host "3. Membuka port firewall 9182 untuk Server Monitoring..."
+Get-NetFirewallRule -DisplayName "Monitora windows_exporter" -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+New-NetFirewallRule -DisplayName "Monitora windows_exporter" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 9182 -RemoteAddress $MonitoringServer | Out-Null
+
+Write-Host "SELESAI! windows_exporter aktif pada port 9182."</code></pre>
+      <p style="color: #64748b; font-size: 7.8pt; margin-top: 2px;"><em>*Aturan firewall otomatis mengizinkan port 9182 hanya dari IP Server Monitoring (192.168.1.10).</em></p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">Langkah 3.3: Uji Verifikasi Agen Windows</div>
+      <p>Ketik perintah verifikasi berikut di PowerShell:</p>
+      <pre><code>Invoke-WebRequest -Uri http://localhost:9182/metrics</code></pre>
+      <p>Jika output menghasilkan <code>StatusCode : 200</code>, agen Windows sudah berjalan dengan benar dan siap dihubungkan ke Monitora.</p>
+    </div>
+
+    <div class="step-card" style="border-left-color: #10b981;">
+      <div class="step-header" style="color: #047857;">Cek Status Service Windows (Jika Diperlukan)</div>
+      <p>Untuk memastikan service berjalan di latar belakang kapan saja:</p>
+      <pre><code>Get-Service windows_exporter</code></pre>
+      <p>Pastikan statusnya <strong>Running</strong>.</p>
+    </div>
+
+    <div class="footer-note">
+      <span>Dokumentasi Resmi Operasional Monitora</span>
+      <span>Halaman 2 dari 4</span>
+    </div>
+  </div>
+
+
+  <!-- ==================== HALAMAN 3 ==================== -->
+  <div class="page">
+    <div class="header-card">
+      <div class="header-title">
+        <h1>Panduan Input Perangkat ke Web Monitora</h1>
+        <p>Langkah Demi Langkah Pendaftaran Perangkat Melalui Antarmuka UI</p>
+      </div>
+      <div class="badge-doc">Monitora Guide</div>
+    </div>
+
+    <!-- BAGIAN 4 -->
+    <h2><span class="section-num">4</span> Menambahkan Perangkat ke Aplikasi Monitora (UI Walkthrough)</h2>
+    <p>Setelah agen di target terpasang, ikuti alur visual berikut untuk mendaftarkan server ke sistem monitoring:</p>
+
+    <div class="step-card">
+      <div class="step-header">Langkah 4.1: Masuk ke Menu Perangkat</div>
+      <ol>
+        <li>Buka browser, akses <code>http://192.168.1.10:8080</code> dan masuk dengan akun Anda.</li>
+        <li>Pada menu bilah sebelah kiri (sidebar), klik menu <strong>Perangkat</strong> (ikon server/list).</li>
+        <li>Di pojok kanan atas halaman, klik tombol biru <strong>+ Tambah perangkat</strong>.</li>
+        <li>Panel formulir (drawer) akan muncul di sisi kanan layar.</li>
+      </ol>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">Langkah 4.2: Formulir Target LINUX CLIENT</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 25%;">Langkah</th>
+            <th style="width: 28%;">Kolom Formulir</th>
+            <th>Nilai yang Diisi / Dipilih</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td rowspan="4"><strong>Tahap 1: Identitas</strong></td>
+            <td>Nama perangkat</td>
+            <td>Ketik nama server, misal: <code>Server Database Linux</code></td>
+          </tr>
+          <tr>
+            <td>Jenis</td>
+            <td>Pilih <strong>Server Linux</strong></td>
+          </tr>
+          <tr>
+            <td>Peran jaringan</td>
+            <td>Pilih <strong>Perangkat akhir</strong></td>
+          </tr>
+          <tr>
+            <td>IP atau hostname</td>
+            <td>Ketik IP target: <code>192.168.1.20</code> &rarr; Klik <strong>Lanjut ke akses</strong></td>
+          </tr>
+          <tr>
+            <td rowspan="3"><strong>Tahap 2: Akses</strong></td>
+            <td>Target monitoring</td>
+            <td>Isi format <code>IP:PORT</code> &rarr; <code>192.168.1.20:9100</code> <em>(Wajib sertakan :9100)</em></td>
+          </tr>
+          <tr>
+            <td>Job</td>
+            <td>Otomatis terisi <code>node</code></td>
+          </tr>
+          <tr>
+            <td>Tindakan Akhir</td>
+            <td>Klik <strong>Uji koneksi</strong> &rarr; Klik tombol biru <strong>Simpan & temukan port</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">Langkah 4.3: Formulir Target WINDOWS CLIENT</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 25%;">Langkah</th>
+            <th style="width: 28%;">Kolom Formulir</th>
+            <th>Nilai yang Diisi / Dipilih</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td rowspan="4"><strong>Tahap 1: Identitas</strong></td>
+            <td>Nama perangkat</td>
+            <td>Ketik nama server, misal: <code>Server Aplikasi Windows</code></td>
+          </tr>
+          <tr>
+            <td>Jenis</td>
+            <td>Pilih <strong>Server Windows</strong></td>
+          </tr>
+          <tr>
+            <td>Peran jaringan</td>
+            <td>Pilih <strong>Perangkat akhir</strong></td>
+          </tr>
+          <tr>
+            <td>IP atau hostname</td>
+            <td>Ketik IP target: <code>192.168.1.30</code> &rarr; Klik <strong>Lanjut ke akses</strong></td>
+          </tr>
+          <tr>
+            <td rowspan="3"><strong>Tahap 2: Akses</strong></td>
+            <td>Target monitoring</td>
+            <td>Isi format <code>IP:PORT</code> &rarr; <code>192.168.1.30:9182</code> <em>(Wajib sertakan :9182)</em></td>
+          </tr>
+          <tr>
+            <td>Job</td>
+            <td>Otomatis terisi <code>windows</code></td>
+          </tr>
+          <tr>
+            <td>Tindakan Akhir</td>
+            <td>Klik <strong>Uji koneksi</strong> &rarr; Klik tombol biru <strong>Simpan & temukan port</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="footer-note">
+      <span>Dokumentasi Resmi Operasional Monitora</span>
+      <span>Halaman 3 dari 4</span>
+    </div>
+  </div>
+
+
+  <!-- ==================== HALAMAN 4 ==================== -->
+  <div class="page">
+    <div class="header-card">
+      <div class="header-title">
+        <h1>Visualisasi Grafana & Panduan Troubleshooting</h1>
+        <p>Akses Dashboard Historis dan Pemecahan Masalah Target Tidak Terbaca</p>
+      </div>
+      <div class="badge-doc">Monitora Guide</div>
+    </div>
+
+    <!-- BAGIAN 5 -->
+    <h2><span class="section-num">5</span> Melihat Hasil & Grafik Performa di Grafana</h2>
+    <div class="step-card">
+      <div class="step-header">Alur Pemantauan Grafik</div>
+      <ol>
+        <li>Setelah perangkat disimpan, perangkat akan muncul di tabel Perangkat dengan status badge hijau <strong>Aktif</strong>.</li>
+        <li>Prometheus melakukan penarikan (*scrape*) berkala setiap <strong>15–30 detik</strong>.</li>
+        <li>Untuk melihat grafik performa (CPU, RAM, Disk, Traffic Jaringan):
+          <ul>
+            <li>Di bilah navigasi kiri paling bawah, klik tombol <strong>"Buka Grafana"</strong>.</li>
+            <li>Grafana akan terbuka di tab baru. Pilih dashboard sesuai jenis perangkat:
+              <ul>
+                <li><strong>Server Linux</strong> &rarr; untuk melihat metrik CPU, memori, disk, dan interface server Linux.</li>
+                <li><strong>Server Windows</strong> &rarr; untuk melihat metrik CPU usage, physical memory, logical disk, dan network server Windows.</li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+      </ol>
+    </div>
+
+    <!-- BAGIAN 6 -->
+    <h2><span class="section-num">6</span> Panduan Troubleshooting Masalah Umum</h2>
+    <div class="step-card" style="border-left-color: #f59e0b;">
+      <div class="step-header" style="color: #b45309;">1. Target Berstatus "Down" atau Merah di Prometheus</div>
+      <ul>
+        <li><strong>Port Terblokir Firewall Target:</strong> Pastikan port <code>9100</code> (Linux) atau <code>9182</code> (Windows) sudah diizinkan untuk menerima koneksi dari IP Server Monitoring (<code>192.168.1.10</code>).</li>
+        <li><strong>Penulisan Target Tanpa Port:</strong> Pada kolom <em>Target monitoring</em> aplikasi Monitora, wajib menyertakan port: <code>192.168.1.20:9100</code> atau <code>192.168.1.30:9182</code>. Jika hanya menulis IP tanpa port, scrape Prometheus akan gagal.</li>
+      </ul>
+    </div>
+
+    <div class="step-card" style="border-left-color: #f59e0b;">
+      <div class="step-header" style="color: #b45309;">2. Uji Koneksi Langsung dari Server Monitoring (Terminal Linux Utama)</div>
+      <p>Jika ragu apakah server monitoring bisa menjangkau target, jalankan perintah uji ini dari server utama:</p>
+      <pre><code># Uji ke Linux Client:
+curl -m 5 http://192.168.1.20:9100/metrics
+
+# Uji ke Windows Client:
+curl -m 5 http://192.168.1.30:9182/metrics</code></pre>
+      <p>Jika muncul respon teks metrik, koneksi jaringan dan agen di mesin target dipastikan 100% normal.</p>
+    </div>
+
+    <div class="step-card" style="border-left-color: #10b981;">
+      <div class="step-header" style="color: #047857;">3. Verifikasi Status Target di Prometheus Web UI</div>
+      <p>Buka <code>http://192.168.1.10:9090/targets</code> di browser. Periksa job <code>node</code> dan <code>windows</code>. Target yang sehat akan menampilkan tanda hijau <strong>UP</strong>.</p>
+    </div>
+
+    <div class="footer-note">
+      <span>Dokumentasi Resmi Operasional Monitora &bull; Dibuat untuk panduan tim teknis dan administrator sistem.</span>
+      <span>Halaman 4 dari 4</span>
+    </div>
+  </div>
+
+</body>
+</html>
