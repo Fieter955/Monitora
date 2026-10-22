@@ -17,7 +17,7 @@ const navigation = [
   { href: "/laporan", label: "Laporan", icon: "reports" as const },
 ];
 
-const grafanaDashboardUrl = "/grafana/d/infrastructure-overview/ringkasan-infrastruktur?kiosk&_dash.hideTimePicker=true&_dash.hideVariables=true";
+const grafanaDashboardUrl = "/grafana/d/infrastructure-overview?kiosk=tv";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

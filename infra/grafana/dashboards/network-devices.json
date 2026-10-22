@@ -12,7 +12,7 @@
       "title": "Ringkasan",
       "tooltip": "",
       "type": "link",
-      "url": "/d/infrastructure-overview?kiosk"
+      "url": "/d/infrastructure-overview?kiosk=tv"
     },
     {
       "icon": "doc",
@@ -21,7 +21,7 @@
       "title": "Server Linux",
       "tooltip": "",
       "type": "link",
-      "url": "/d/servers-linux?kiosk"
+      "url": "/d/servers-linux?kiosk=tv"
     },
     {
       "icon": "doc",
@@ -30,7 +30,7 @@
       "title": "Server Windows",
       "tooltip": "",
       "type": "link",
-      "url": "/d/servers-windows?kiosk"
+      "url": "/d/servers-windows?kiosk=tv"
     },
     {
       "icon": "dashboard",
@@ -39,7 +39,7 @@
       "title": "🟢 Perangkat Jaringan",
       "tooltip": "",
       "type": "link",
-      "url": "/d/network-devices?kiosk"
+      "url": "/d/network-devices?kiosk=tv"
     }
   ],
   "panels": [

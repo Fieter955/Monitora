@@ -12,7 +12,7 @@
       "title": "Ringkasan",
       "tooltip": "",
       "type": "link",
-      "url": "/d/infrastructure-overview?kiosk"
+      "url": "/d/infrastructure-overview?kiosk=tv"
     },
     {
       "icon": "dashboard",
@@ -21,7 +21,7 @@
       "title": "🟢 Server Linux",
       "tooltip": "",
       "type": "link",
-      "url": "/d/servers-linux?kiosk"
+      "url": "/d/servers-linux?kiosk=tv"
     },
     {
       "icon": "doc",
@@ -30,7 +30,7 @@
       "title": "Server Windows",
       "tooltip": "",
       "type": "link",
-      "url": "/d/servers-windows?kiosk"
+      "url": "/d/servers-windows?kiosk=tv"
     },
     {
       "icon": "doc",
@@ -39,7 +39,7 @@
       "title": "Perangkat Jaringan",
       "tooltip": "",
       "type": "link",
-      "url": "/d/network-devices?kiosk"
+      "url": "/d/network-devices?kiosk=tv"
     }
   ],
   "panels": [
@@ -92,7 +92,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "count(up{job=\"node\"} == 1) or vector(0)",
+          "expr": "count(up{job=\"node\",device_name=~\"$server\"} == 1) or vector(0)",
           "legendFormat": "Online",
           "instant": true,
           "refId": "A"
@@ -150,7 +150,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "count(up{job=\"node\"} == 0) or vector(0)",
+          "expr": "count(up{job=\"node\",device_name=~\"$server\"} == 0) or vector(0)",
           "legendFormat": "Offline",
           "instant": true,
           "refId": "A"
@@ -216,7 +216,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "avg(100-(avg by(instance)(rate(node_cpu_seconds_total{job=\"node\",mode=\"idle\"}[5m]))*100))",
+          "expr": "avg(100-(avg by(instance,device_name)(rate(node_cpu_seconds_total{job=\"node\",device_name=~\"$server\",mode=\"idle\"}[5m]))*100))",
           "legendFormat": "CPU",
           "instant": true,
           "refId": "A"
@@ -282,7 +282,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "avg(100*(1-node_memory_MemAvailable_bytes{job=\"node\"}/node_memory_MemTotal_bytes{job=\"node\"}))",
+          "expr": "avg(100*(1-node_memory_MemAvailable_bytes{job=\"node\",device_name=~\"$server\"}/node_memory_MemTotal_bytes{job=\"node\",device_name=~\"$server\"}))",
           "legendFormat": "Memori",
           "instant": true,
           "refId": "A"
@@ -352,9 +352,9 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "100-(avg by(instance)(rate(node_cpu_seconds_total{job=\"node\",mode=\"idle\"}[5m]))*100)",
+          "expr": "100-(avg by(device_name,instance)(rate(node_cpu_seconds_total{job=\"node\",device_name=~\"$server\",mode=\"idle\"}[5m]))*100)",
           "instant": true,
-          "legendFormat": "{{instance}}",
+          "legendFormat": "{{device_name}} ({{instance}})",
           "range": false,
           "refId": "A"
         }
@@ -423,9 +423,9 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "100*(1-node_memory_MemAvailable_bytes{job=\"node\"}/node_memory_MemTotal_bytes{job=\"node\"})",
+          "expr": "100*(1-node_memory_MemAvailable_bytes{job=\"node\",device_name=~\"$server\"}/node_memory_MemTotal_bytes{job=\"node\",device_name=~\"$server\"})",
           "instant": true,
-          "legendFormat": "{{instance}}",
+          "legendFormat": "{{device_name}} ({{instance}})",
           "range": false,
           "refId": "A"
         }
@@ -505,8 +505,8 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "100-(avg by(instance)(rate(node_cpu_seconds_total{job=\"node\",mode=\"idle\"}[5m]))*100)",
-          "legendFormat": "{{instance}}",
+          "expr": "100-(avg by(device_name,instance)(rate(node_cpu_seconds_total{job=\"node\",device_name=~\"$server\",mode=\"idle\"}[5m]))*100)",
+          "legendFormat": "{{device_name}}",
           "range": true,
           "refId": "A"
         }
@@ -586,8 +586,8 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "100*(1-node_memory_MemAvailable_bytes{job=\"node\"}/node_memory_MemTotal_bytes{job=\"node\"})",
-          "legendFormat": "{{instance}}",
+          "expr": "100*(1-node_memory_MemAvailable_bytes{job=\"node\",device_name=~\"$server\"}/node_memory_MemTotal_bytes{job=\"node\",device_name=~\"$server\"})",
+          "legendFormat": "{{device_name}}",
           "range": true,
           "refId": "A"
         }
@@ -656,9 +656,9 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "topk by(instance,device)(1,(100*(1-node_filesystem_avail_bytes{job=\"node\",fstype!~\"tmpfs|overlay|squashfs|devtmpfs\",mountpoint!~\"^/(dev|proc|sys|run|var/lib/docker)(/.*)?$\"}/node_filesystem_size_bytes{job=\"node\",fstype!~\"tmpfs|overlay|squashfs|devtmpfs\",mountpoint!~\"^/(dev|proc|sys|run|var/lib/docker)(/.*)?$\"})) and on(instance,device,mountpoint) node_filesystem_readonly{job=\"node\"}==0 and on(instance,device,mountpoint) node_filesystem_device_error{job=\"node\"}==0)",
+          "expr": "topk by(device_name,instance,device)(1,(100*(1-node_filesystem_avail_bytes{job=\"node\",device_name=~\"$server\",fstype!~\"tmpfs|overlay|squashfs|devtmpfs\",mountpoint!~\"^/(dev|proc|sys|run|var/lib/docker)(/.*)?$\"}/node_filesystem_size_bytes{job=\"node\",device_name=~\"$server\",fstype!~\"tmpfs|overlay|squashfs|devtmpfs\",mountpoint!~\"^/(dev|proc|sys|run|var/lib/docker)(/.*)?$\"})) and on(instance,device,mountpoint) node_filesystem_readonly{job=\"node\"}==0 and on(instance,device,mountpoint) node_filesystem_device_error{job=\"node\"}==0)",
           "instant": true,
-          "legendFormat": "{{instance}} - {{mountpoint}}",
+          "legendFormat": "{{device_name}} - {{mountpoint}}",
           "range": false,
           "refId": "A"
         }
@@ -738,15 +738,15 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum by(instance)(rate(node_network_receive_bytes_total{job=\"node\",device!~\"lo|veth.*\"}[5m]))",
-          "legendFormat": "Masuk {{instance}}",
+          "expr": "sum by(device_name,instance)(rate(node_network_receive_bytes_total{job=\"node\",device_name=~\"$server\",device!~\"lo|veth.*\"}[5m]))",
+          "legendFormat": "Masuk {{device_name}}",
           "range": true,
           "refId": "A"
         },
         {
           "editorMode": "code",
-          "expr": "sum by(instance)(rate(node_network_transmit_bytes_total{job=\"node\",device!~\"lo|veth.*\"}[5m]))",
-          "legendFormat": "Keluar {{instance}}",
+          "expr": "sum by(device_name,instance)(rate(node_network_transmit_bytes_total{job=\"node\",device_name=~\"$server\",device!~\"lo|veth.*\"}[5m]))",
+          "legendFormat": "Keluar {{device_name}}",
           "range": true,
           "refId": "B"
         }
@@ -826,8 +826,8 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "node_time_seconds{job=\"node\"}-node_boot_time_seconds{job=\"node\"}",
-          "legendFormat": "{{instance}}",
+          "expr": "node_time_seconds{job=\"node\",device_name=~\"$server\"}-node_boot_time_seconds{job=\"node\",device_name=~\"$server\"}",
+          "legendFormat": "{{device_name}}",
           "range": true,
           "refId": "A"
         }
@@ -844,7 +844,37 @@
     "infrastruktur"
   ],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": "Semua Server",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(up{job=\"node\"}, device_name)",
+        "description": "Pilih server tertentu untuk melihat metrik khusus",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Pilih Server",
+        "multi": false,
+        "name": "server",
+        "options": [],
+        "query": {
+          "query": "label_values(up{job=\"node\"}, device_name)",
+          "refId": "StandardVariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
   },
   "time": {
     "from": "now-6h",
