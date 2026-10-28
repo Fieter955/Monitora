@@ -290,7 +290,7 @@ sudo useradd -rs /bin/false node_exporter</code></pre>
     </div>
 
     <div class="step-card">
-      <div class="step-header">Langkah 2.2: Buat Service Systemd Otomatis</div>
+      <div class="step-header">Langkah 2.2: Buat Service Systemd Otomatis (Auto-Restart saat Crash/OOM)</div>
       <pre><code>sudo tee /etc/systemd/system/node_exporter.service <<EOF
 [Unit]
 Description=Node Exporter
@@ -301,6 +301,8 @@ User=node_exporter
 Group=node_exporter
 Type=simple
 ExecStart=/usr/local/bin/node_exporter
+Restart=always
+RestartSec=5s
 
 [Install]
 WantedBy=multi-user.target
@@ -348,7 +350,7 @@ curl http://localhost:9100/metrics</code></pre>
     </div>
 
     <div class="step-card">
-      <div class="step-header">Langkah 3.2: Eksekusi Script Instalasi Satu Klik</div>
+      <div class="step-header">Langkah 3.2: Eksekusi Script Instalasi Satu Klik (Termasuk Auto-Restart)</div>
       <p>Salin dan tempel perintah berikut di PowerShell (sesuaikan <code>$MonitoringServer</code> ke IP server monitoring):</p>
       <pre><code>$MonitoringServer = "192.168.1.10"
 $Version = "0.31.8"
@@ -362,11 +364,15 @@ Write-Host "2. Memasang service windows_exporter..."
 $args = @("/i", $OutFile, "/qn", "/norestart", "ENABLED_COLLECTORS=cpu,logical_disk,memory,net,os,service,system", "LISTEN_PORT=9182")
 Start-Process msiexec.exe -ArgumentList $args -Wait
 
-Write-Host "3. Membuka port firewall 9182 untuk Server Monitoring..."
+Write-Host "3. Mengonfigurasi auto-restart service saat crash/kegagalan..."
+Set-Service -Name "windows_exporter" -StartupType Automatic
+sc.exe failure "windows_exporter" reset= 86400 actions= restart/5000/restart/5000/restart/5000
+
+Write-Host "4. Membuka port firewall 9182 untuk Server Monitoring..."
 Get-NetFirewallRule -DisplayName "Monitora windows_exporter" -ErrorAction SilentlyContinue | Remove-NetFirewallRule
 New-NetFirewallRule -DisplayName "Monitora windows_exporter" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 9182 -RemoteAddress $MonitoringServer | Out-Null
 
-Write-Host "SELESAI! windows_exporter aktif pada port 9182."</code></pre>
+Write-Host "SELESAI! windows_exporter aktif pada port 9182 dengan auto-restart aktif."</code></pre>
       <p style="color: #64748b; font-size: 7.8pt; margin-top: 2px;"><em>*Aturan firewall otomatis mengizinkan port 9182 hanya dari IP Server Monitoring (192.168.1.10).</em></p>
     </div>
 

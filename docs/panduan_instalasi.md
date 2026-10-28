@@ -66,7 +66,7 @@ Mesin Linux yang ingin dipantau hanya butuh agen kecil bernama **Node Exporter**
    sudo useradd -rs /bin/false node_exporter
    ```
 
-3. **Buat Systemd Service agar jalan otomatis di background:**
+3. **Buat Systemd Service agar jalan otomatis dan auto-restart jika crash/terbunuh OOM:**
    ```bash
    sudo tee /etc/systemd/system/node_exporter.service <<EOF
    [Unit]
@@ -78,11 +78,14 @@ Mesin Linux yang ingin dipantau hanya butuh agen kecil bernama **Node Exporter**
    Group=node_exporter
    Type=simple
    ExecStart=/usr/local/bin/node_exporter
+   Restart=always
+   RestartSec=5s
 
    [Install]
    WantedBy=multi-user.target
    EOF
    ```
+   > **Catatan:** Baris `Restart=always` dan `RestartSec=5s` memastikan jika proses `node_exporter` mati tiba-tiba (misal terbunuh OOM Killer saat memori penuh), systemd akan otomatis menyalakannya kembali dalam 5 detik.
 
 4. **Aktifkan dan jalankan service:**
    ```bash
@@ -121,17 +124,21 @@ Mesin Windows yang ingin dipantau menggunakan agen **Windows Exporter** (port de
    $Url = "https://github.com/prometheus-community/windows_exporter/releases/download/v$Version/windows_exporter-$Version-amd64.msi"
    $OutFile = "$env:TEMP\windows_exporter.msi"
 
-   Write-Host "Mengunduh windows_exporter..."
+   Write-Host "1. Mengunduh windows_exporter..."
    Invoke-WebRequest -Uri $Url -OutFile $OutFile
 
-   Write-Host "Memasang service windows_exporter..."
+   Write-Host "2. Memasang service windows_exporter..."
    Start-Process msiexec.exe -ArgumentList "/i", $OutFile, "/qn", "/norestart", "ENABLED_COLLECTORS=cpu,logical_disk,memory,net,os,service,system", "LISTEN_PORT=9182" -Wait
 
-   Write-Host "Membuka port firewall 9182 untuk Server Monitoring..."
+   Write-Host "3. Mengonfigurasi auto-restart service saat crash/kegagalan..."
+   Set-Service -Name "windows_exporter" -StartupType Automatic
+   sc.exe failure "windows_exporter" reset= 86400 actions= restart/5000/restart/5000/restart/5000
+
+   Write-Host "4. Membuka port firewall 9182 untuk Server Monitoring..."
    Get-NetFirewallRule -DisplayName "Monitora windows_exporter" -ErrorAction SilentlyContinue | Remove-NetFirewallRule
    New-NetFirewallRule -DisplayName "Monitora windows_exporter" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 9182 -RemoteAddress $MonitoringServer | Out-Null
 
-   Write-Host "SELESAI! Agen Windows aktif pada port 9182."
+   Write-Host "SELESAI! Agen Windows aktif pada port 9182 dengan auto-restart aktif."
    ```
 
 4. **Tes Verifikasi:**

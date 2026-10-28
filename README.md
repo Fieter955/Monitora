@@ -175,6 +175,7 @@ npm run ui:smoke
 - UI memakai bahasa operasional, radius kecil, warna terbatas, dan kepadatan informasi yang sesuai aplikasi internal—bukan gaya landing page atau dashboard template generik.
 
 Panduan produksi, cPanel, firewall, HTTPS, SNMP, backup, dan notifikasi tersedia di [docs/deployment.md](docs/deployment.md).
+Dokumen asesmen keamanan siber, matriks analisis risiko (aman vs bahaya), skenario uji penetrasi siber, dan checklist hardening untuk kepatuhan klien intranet tersedia di [docs/panduan-keamanan-dan-uji-cyber.md](docs/panduan-keamanan-dan-uji-cyber.md).
 
 Untuk menguji LibreNMS dengan perangkat fisik melalui Ethernet laptop Windows sebelum deployment ke ESXi, ikuti [panduan uji LibreNMS di laptop](docs/uji-librenms-laptop.md). Panduan tersebut mencakup topologi kabel, subnet lab terisolasi, preflight dari container, discovery SNMP/LLDP, dan simulasi gangguan.
 
