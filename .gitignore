@@ -14,3 +14,6 @@ backups/
 secrets/*
 !secrets/.gitkeep
 
+.coverage
+*.egg-info/
+*.tsbuildinfo
