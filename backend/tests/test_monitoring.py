@@ -157,3 +157,18 @@ def test_alert_parser_handles_alerts_endpoint_failure(monkeypatch):
     monkeypatch.setattr(client, "_get", fail_get)
     assert client.alerts() == []
 
+
+def test_thanos_query_compatibility(monkeypatch):
+    client = PrometheusClient("http://thanos-query.test:9090")
+    monkeypatch.setattr(
+        client,
+        "_get",
+        lambda _path, _params=None: {
+            "resultType": "vector",
+            "result": [{"metric": {"instance": "10.0.0.1:9100"}, "value": [1700000000, "1"]}],
+        },
+    )
+    result = client.query("up")
+    assert len(result) == 1
+    assert result[0]["metric"]["instance"] == "10.0.0.1:9100"
+
