@@ -149,7 +149,7 @@ def test_alert_parser_uses_human_readable_name(monkeypatch):
 
 
 def test_alert_parser_handles_alerts_endpoint_failure(monkeypatch):
-    client = PrometheusClient("http://prometheus.test:9090")
+    client = PrometheusClient("http://thanos-query.test:9090")
 
     def fail_get(_path):
         raise httpx.ConnectError("connection refused")
