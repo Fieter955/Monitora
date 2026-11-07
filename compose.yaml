@@ -54,7 +54,7 @@ services:
       ADMIN_FULL_NAME: ${ADMIN_FULL_NAME:-Administrator Infrastruktur}
       GRAFANA_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-}
       DATABASE_URL: ${DATABASE_URL}
-      PROMETHEUS_URL: ${PROMETHEUS_URL:-http://thanos-query:9090}
+      PROMETHEUS_URL: ${PROMETHEUS_URL:-http://prometheus:9090}
       BLACKBOX_EXPORTER_URL: ${BLACKBOX_EXPORTER_URL:-http://blackbox-exporter:9115}
       LIBRENMS_URL: ${LIBRENMS_URL:-http://librenms:8000}
       LIBRENMS_API_TOKEN: ${LIBRENMS_API_TOKEN:-}
@@ -65,7 +65,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      thanos-query:
+      prometheus:
         condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
@@ -121,8 +121,6 @@ services:
       - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION_TIME:-30d}
       - --storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-8GB}
       - --web.enable-lifecycle
-      - --storage.tsdb.min-block-duration=2h
-      - --storage.tsdb.max-block-duration=2h
     volumes:
       - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./infra/prometheus/rules.yml:/etc/prometheus/rules.yml:ro
@@ -143,151 +141,6 @@ services:
       - alertmanager_data:/alertmanager
     expose: ["9093"]
     networks: [monitoring]
-
-  minio:
-    image: minio/minio:RELEASE.2025-02-18T16-25-55Z
-    restart: unless-stopped
-    command: ["server", "/data", "--console-address", ":9001"]
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-thanos}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    volumes:
-      - minio_data:/data
-    expose: ["9000"]
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://127.0.0.1:9000/minio/health/live || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks: [internal]
-
-  minio-init:
-    image: minio/mc:RELEASE.2025-02-21T01-57-46Z
-    restart: "no"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-thanos}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    entrypoint:
-      - /bin/sh
-      - -c
-      - |
-        until /usr/bin/mc alias set minio http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"; do
-          echo "Menunggu MinIO siap..."
-          sleep 2
-        done
-        /usr/bin/mc mb --ignore-existing minio/thanos
-        exit 0
-    depends_on:
-      minio:
-        condition: service_healthy
-    networks: [internal]
-
-  thanos-init:
-    image: alpine:3.22
-    restart: "no"
-    command: ["sh", "-c", "chown -R 1001:1001 /var/thanos/store /var/thanos/compact"]
-    volumes:
-      - thanos_store_data:/var/thanos/store
-      - thanos_compact_data:/var/thanos/compact
-    network_mode: none
-
-  thanos-sidecar:
-    image: quay.io/thanos/thanos:v0.37.2
-    restart: unless-stopped
-    user: "65534:65534"
-    command:
-      - sidecar
-      - --prometheus.url=http://prometheus:9090
-      - --tsdb.path=/prometheus
-      - --objstore.config-file=/etc/thanos/thanos.yaml
-      - --http-address=0.0.0.0:10902
-      - --grpc-address=0.0.0.0:10901
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-thanos}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-thanos}
-      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
-    volumes:
-      - prometheus_data:/prometheus
-      - ./infra/thanos/thanos.yaml:/etc/thanos/thanos.yaml:ro
-    expose: ["10901", "10902"]
-    depends_on:
-      prometheus:
-        condition: service_started
-      minio-init:
-        condition: service_completed_successfully
-    networks: [internal, monitoring]
-
-  thanos-store:
-    image: quay.io/thanos/thanos:v0.37.2
-    restart: unless-stopped
-    command:
-      - store
-      - --data-dir=/var/thanos/store
-      - --objstore.config-file=/etc/thanos/thanos.yaml
-      - --http-address=0.0.0.0:10902
-      - --grpc-address=0.0.0.0:10901
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-thanos}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-thanos}
-      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
-    volumes:
-      - thanos_store_data:/var/thanos/store
-      - ./infra/thanos/thanos.yaml:/etc/thanos/thanos.yaml:ro
-    expose: ["10901", "10902"]
-    depends_on:
-      thanos-init:
-        condition: service_completed_successfully
-      minio-init:
-        condition: service_completed_successfully
-    networks: [internal]
-
-  thanos-query:
-    image: quay.io/thanos/thanos:v0.37.2
-    restart: unless-stopped
-    command:
-      - query
-      - --http-address=0.0.0.0:9090
-      - --grpc-address=0.0.0.0:10901
-      - --store=thanos-sidecar:10901
-      - --store=thanos-store:10901
-      - --query.auto-downsampling
-    expose: ["9090", "10901"]
-    depends_on:
-      thanos-sidecar:
-        condition: service_started
-      thanos-store:
-        condition: service_started
-    networks: [internal, monitoring]
-
-  thanos-compact:
-    image: quay.io/thanos/thanos:v0.37.2
-    restart: unless-stopped
-    command:
-      - compact
-      - --data-dir=/var/thanos/compact
-      - --objstore.config-file=/etc/thanos/thanos.yaml
-      - --http-address=0.0.0.0:10902
-      - --retention.resolution-raw=${THANOS_RETENTION_RAW:-30d}
-      - --retention.resolution-5m=${THANOS_RETENTION_5M:-180d}
-      - --retention.resolution-1h=${THANOS_RETENTION_1H:-3y}
-      - --wait
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-thanos}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-thanos}
-      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
-    volumes:
-      - thanos_compact_data:/var/thanos/compact
-      - ./infra/thanos/thanos.yaml:/etc/thanos/thanos.yaml:ro
-    expose: ["10902"]
-    depends_on:
-      thanos-init:
-        condition: service_completed_successfully
-      minio-init:
-        condition: service_completed_successfully
-    networks: [internal]
 
   grafana:
     image: grafana/grafana:13.1.0
@@ -310,9 +163,6 @@ services:
       - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
     expose: ["3000"]
-    depends_on:
-      thanos-query:
-        condition: service_started
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/api/health"]
       interval: 15s
@@ -505,9 +355,6 @@ volumes:
   prometheus_data:
   grafana_data:
   alertmanager_data:
-  minio_data:
-  thanos_store_data:
-  thanos_compact_data:
   librenms_db_data:
   librenms_rrd_data:
   librenms_rrd_journal:
