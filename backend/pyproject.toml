@@ -20,7 +20,7 @@ requires = ["setuptools>=80"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["app*"]
+include = ["core*", "db*", "models*", "schemas*", "services*", "api*"]
 
 [project.optional-dependencies]
 dev = [

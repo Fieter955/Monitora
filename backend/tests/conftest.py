@@ -8,14 +8,17 @@ os.environ["APP_SECRET_KEY"] = "test-secret-key-with-more-than-32-characters"
 import pytest
 from fastapi.testclient import TestClient
 
-from app.database import Base, SessionLocal, engine
-from app.main import app
-from app.models import User, UserRole
-from app.security import hash_password
+from core.security import hash_password
+from db.base import Base
+from db.session import SessionLocal, engine
+from main import app
+from models.user import User, UserRole
+from services.auth import reset_login_limits
 
 
 @pytest.fixture(autouse=True)
 def reset_database():
+    reset_login_limits()
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     with SessionLocal() as db:
@@ -37,6 +40,7 @@ def reset_database():
         )
         db.commit()
     yield
+    reset_login_limits()
     Base.metadata.drop_all(bind=engine)
 
 

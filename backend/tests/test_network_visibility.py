@@ -1,10 +1,11 @@
 from sqlalchemy import select
 
-from app.database import SessionLocal
-from app.models import Device, DeviceObservation, PortExpectation, PortExpectationMode
-from app.network_service import device_health, sync_all, sync_network_device
-from app.probes import ProbeResult
-from app.security import decrypt_credentials, encrypt_credentials
+from core.security import decrypt_credentials, encrypt_credentials
+from db.session import SessionLocal
+from models.device import Device
+from models.network import DeviceObservation, PortExpectation, PortExpectationMode
+from services.network_sync import device_health, sync_all, sync_network_device
+from services.probes import ProbeResult
 
 
 def test_location_hierarchy_and_floorplan_validation(admin_client):
@@ -184,7 +185,7 @@ def test_prometheus_internal_metrics_expose_port_issue(admin_client):
 
 
 def test_icmp_discovery_exposes_lan_devices_but_not_unmanaged_hub(admin_client):
-    from app.bootstrap import seed_demo_network
+    from bootstrap import seed_demo_network
 
     with SessionLocal() as db:
         seed_demo_network(db)
@@ -256,7 +257,7 @@ def test_icmp_router_discovery_skips_librenms(admin_client):
 
 def test_icmp_connection_test_uses_blackbox_probe(admin_client, monkeypatch):
     monkeypatch.setattr(
-        "app.routers.network.icmp_probe",
+        "services.network.icmp_probe",
         lambda address: ProbeResult(True, "online", "Ping ICMP berhasil", 1.25),
     )
 

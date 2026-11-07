@@ -3,9 +3,18 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
-from app import models  # noqa: F401
-from app.config import settings
-from app.database import Base
+from core.config import settings
+from db.base import Base
+from models.credential import CredentialProfile  # noqa: F401
+from models.device import Device  # noqa: F401
+from models.location import Floorplan, Location  # noqa: F401
+from models.network import (  # noqa: F401
+    DeviceObservation,
+    NetworkLink,
+    NetworkPort,
+    PortExpectation,
+)
+from models.user import User  # noqa: F401
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)

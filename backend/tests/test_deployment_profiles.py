@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
-from app.models import Device, DeviceKind, NetworkRole
-from app.prometheus import PrometheusClient
+from models.device import Device, DeviceKind, NetworkRole
+from services.prometheus import PrometheusClient
 
 
 def test_system_capabilities_exposes_active_profile(admin_client):

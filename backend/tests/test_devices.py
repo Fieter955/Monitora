@@ -56,3 +56,10 @@ def test_http_discovery_exposes_active_devices_only(admin_client):
             },
         }
     ]
+
+
+def test_admin_can_list_credential_profiles(admin_client):
+    response = admin_client.get("/api/v1/devices/credentials/profiles")
+    assert response.status_code == 200
+    assert response.json() == []
+

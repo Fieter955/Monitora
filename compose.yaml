@@ -45,19 +45,20 @@ services:
       ENABLE_VMWARE: ${ENABLE_VMWARE:-false}
       ENABLE_ADVANCED_TOPOLOGY: ${ENABLE_ADVANCED_TOPOLOGY:-true}
       SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
-      APP_SECRET_KEY: ${APP_SECRET_KEY:-development-secret-change-before-production}
+      APP_SECRET_KEY: ${APP_SECRET_KEY}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-480}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend,gateway}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin12345}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       ADMIN_FULL_NAME: ${ADMIN_FULL_NAME:-Administrator Infrastruktur}
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://monitoring:monitoring@db:5432/monitoring}
+      GRAFANA_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-}
+      DATABASE_URL: ${DATABASE_URL}
       PROMETHEUS_URL: ${PROMETHEUS_URL:-http://prometheus:9090}
       BLACKBOX_EXPORTER_URL: ${BLACKBOX_EXPORTER_URL:-http://blackbox-exporter:9115}
       LIBRENMS_URL: ${LIBRENMS_URL:-http://librenms:8000}
       LIBRENMS_API_TOKEN: ${LIBRENMS_API_TOKEN:-}
-      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-development-credential-key-change-me}
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY}
       NETWORK_SYNC_INTERVAL_SECONDS: ${NETWORK_SYNC_INTERVAL_SECONDS:-60}
       NETWORK_STALE_AFTER_SECONDS: ${NETWORK_STALE_AFTER_SECONDS:-180}
     expose: ["8000"]
@@ -77,15 +78,15 @@ services:
   network-worker:
     build: ./backend
     restart: unless-stopped
-    command: ["python", "-m", "app.network_worker"]
+    command: ["python", "-m", "network_worker"]
     environment:
       APP_ENV: ${APP_ENV:-development}
       SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
-      APP_SECRET_KEY: ${APP_SECRET_KEY:-development-secret-change-before-production}
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://monitoring:monitoring@db:5432/monitoring}
+      APP_SECRET_KEY: ${APP_SECRET_KEY}
+      DATABASE_URL: ${DATABASE_URL}
       LIBRENMS_URL: ${LIBRENMS_URL:-http://librenms:8000}
       LIBRENMS_API_TOKEN: ${LIBRENMS_API_TOKEN:-}
-      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:-development-credential-key-change-me}
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY}
       NETWORK_SYNC_INTERVAL_SECONDS: ${NETWORK_SYNC_INTERVAL_SECONDS:-60}
       NETWORK_STALE_AFTER_SECONDS: ${NETWORK_STALE_AFTER_SECONDS:-180}
     depends_on:
@@ -99,13 +100,13 @@ services:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-monitoring}
-      POSTGRES_USER: ${POSTGRES_USER:-monitoring}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-monitoring}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-monitoring} -d ${POSTGRES_DB:-monitoring}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -145,8 +146,8 @@ services:
     image: grafana/grafana:13.1.0
     restart: unless-stopped
     environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
       GF_SERVER_ROOT_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}/grafana/
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
       GF_USERS_ALLOW_SIGN_UP: "false"
@@ -205,7 +206,7 @@ services:
       - --config.file=/etc/snmp_exporter/auth.yml
       - --config.expand-environment-variables
     environment:
-      SNMP_COMMUNITY: ${SNMP_COMMUNITY:-public}
+      SNMP_COMMUNITY: ${SNMP_COMMUNITY}
     volumes:
       - ./infra/snmp/auth.yml:/etc/snmp_exporter/auth.yml:ro
     expose: ["9116"]
@@ -218,7 +219,7 @@ services:
     environment:
       VSPHERE_URL: ${VSPHERE_URL:-https://esxi.example.local/sdk}
       VSPHERE_USERNAME: ${VSPHERE_USERNAME:-monitoring-readonly}
-      VSPHERE_PASSWORD: ${VSPHERE_PASSWORD:-replace-vsphere-readonly-password}
+      VSPHERE_PASSWORD: ${VSPHERE_PASSWORD}
       VSPHERE_INSECURE_SKIP_VERIFY: ${VSPHERE_INSECURE_SKIP_VERIFY:-false}
     volumes:
       - ./infra/telegraf/vsphere.conf:/etc/telegraf/telegraf.conf:ro
@@ -236,8 +237,8 @@ services:
     environment:
       MARIADB_DATABASE: librenms
       MARIADB_USER: librenms
-      MARIADB_PASSWORD: ${LIBRENMS_DB_PASSWORD:-replace-librenms-database-password}
-      MARIADB_ROOT_PASSWORD: ${LIBRENMS_DB_ROOT_PASSWORD:-replace-librenms-root-password}
+      MARIADB_PASSWORD: ${LIBRENMS_DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${LIBRENMS_DB_ROOT_PASSWORD}
       TZ: ${TZ:-Asia/Makassar}
     volumes:
       - librenms_db_data:/var/lib/mysql
@@ -251,9 +252,9 @@ services:
   librenms-redis:
     image: redis:8.2-alpine
     restart: unless-stopped
-    command: ["redis-server", "--requirepass", "${LIBRENMS_REDIS_PASSWORD:-replace-librenms-redis-password}"]
+    command: ["redis-server", "--requirepass", "${LIBRENMS_REDIS_PASSWORD}"]
     environment:
-      REDIS_PASSWORD: ${LIBRENMS_REDIS_PASSWORD:-replace-librenms-redis-password}
+      REDIS_PASSWORD: ${LIBRENMS_REDIS_PASSWORD}
     tmpfs:
       - /data
     healthcheck:
@@ -307,10 +308,10 @@ services:
       DB_PORT: 3306
       DB_NAME: librenms
       DB_USER: librenms
-      DB_PASSWORD: ${LIBRENMS_DB_PASSWORD:-replace-librenms-database-password}
+      DB_PASSWORD: ${LIBRENMS_DB_PASSWORD}
       DB_TIMEOUT: 60
       REDIS_HOST: librenms-redis
-      REDIS_PASSWORD: ${LIBRENMS_REDIS_PASSWORD:-replace-librenms-redis-password}
+      REDIS_PASSWORD: ${LIBRENMS_REDIS_PASSWORD}
       CACHE_DRIVER: redis
       SESSION_DRIVER: redis
       RRDCACHED_SERVER: librenms-rrdcached:42217

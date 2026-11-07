@@ -3,9 +3,9 @@ from datetime import UTC, datetime
 import httpx
 from test_devices import DEVICE
 
-from app.models import Device, DeviceKind
-from app.prometheus import PrometheusClient, prometheus_client
-from app.schemas import DeviceMetric, MonitoringSummary
+from models.device import Device, DeviceKind
+from schemas.monitoring import DeviceMetric, MonitoringSummary
+from services.prometheus import PrometheusClient, prometheus_client
 
 
 def fake_summary(devices):
@@ -146,3 +146,14 @@ def test_alert_parser_uses_human_readable_name(monkeypatch):
     assert alerts[0].name == "Ruang disk menipis"
     assert alerts[0].active_since is not None
     assert alerts[0].device_id == 17
+
+
+def test_alert_parser_handles_alerts_endpoint_failure(monkeypatch):
+    client = PrometheusClient("http://prometheus.test:9090")
+
+    def fail_get(_path):
+        raise httpx.ConnectError("connection refused")
+
+    monkeypatch.setattr(client, "_get", fail_get)
+    assert client.alerts() == []
+

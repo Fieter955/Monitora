@@ -1,9 +1,10 @@
 from sqlalchemy import select
 
-from app.bootstrap import bootstrap
-from app.config import settings
-from app.database import SessionLocal
-from app.models import Device, DeviceKind, NetworkLink
+from bootstrap import bootstrap
+from core.config import settings
+from db.session import SessionLocal
+from models.device import Device, DeviceKind
+from models.network import NetworkLink
 
 
 def test_bootstrap_seeds_simple_lan_and_is_idempotent(monkeypatch):

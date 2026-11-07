@@ -1,6 +1,8 @@
-from app.bootstrap import seed_demo_network
-from app.database import SessionLocal
-from app.models import Device, DeviceObservation, utcnow
+from bootstrap import seed_demo_network
+from db.session import SessionLocal
+from models.device import Device
+from models.network import DeviceObservation
+from models.user import utcnow
 
 
 def create_location_tree(client, suffix=""):

@@ -1,0 +1,100 @@
+import base64
+import socket
+import time
+from dataclasses import dataclass
+from urllib.parse import urlparse
+
+import httpx
+
+from core.config import settings
+
+
+@dataclass
+class ProbeResult:
+    reachable: bool
+    status: str
+    reason: str
+    latency_ms: float | None = None
+
+
+def tcp_probe(address: str, port: int, timeout: float = 3.0) -> ProbeResult:
+    started = time.perf_counter()
+    try:
+        with socket.create_connection((address, port), timeout=timeout):
+            latency = (time.perf_counter() - started) * 1000
+            return ProbeResult(True, "online", "Koneksi TCP berhasil", round(latency, 2))
+    except OSError as exc:
+        return ProbeResult(False, "offline", f"Koneksi gagal: {exc}")
+
+
+def icmp_probe(address: str, timeout: float = 6.0) -> ProbeResult:
+    """Run the same ICMP probe used by Prometheus through Blackbox Exporter."""
+    started = time.perf_counter()
+    try:
+        response = httpx.get(
+            f"{settings.blackbox_exporter_url.rstrip('/')}/probe",
+            params={"module": "icmp", "target": address},
+            timeout=timeout,
+        )
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        return ProbeResult(False, "unavailable", f"Probe ICMP tidak tersedia: {exc}")
+
+    success = any(
+        line.strip() == "probe_success 1"
+        for line in response.text.splitlines()
+    )
+    latency = round((time.perf_counter() - started) * 1000, 2)
+    return ProbeResult(
+        success,
+        "online" if success else "offline",
+        "Ping ICMP berhasil" if success else "Target tidak merespons ping ICMP",
+        latency,
+    )
+
+
+def rtsp_probe(
+    stream_url: str,
+    credentials: dict[str, str] | None = None,
+    timeout: float = 4.0,
+) -> ProbeResult:
+    if any(char in stream_url for char in ("\r", "\n", " ", "\t")):
+        return ProbeResult(False, "invalid", "URL stream tidak boleh memuat spasi atau karakter baris baru")
+    parsed = urlparse(stream_url)
+    if parsed.scheme.lower() != "rtsp" or not parsed.hostname:
+        return ProbeResult(False, "invalid", "URL stream harus memakai skema rtsp:// yang valid")
+    if parsed.username or parsed.password:
+        return ProbeResult(False, "invalid", "Kredensial tidak boleh disertakan langsung pada URL stream")
+    port = parsed.port or 554
+    started = time.perf_counter()
+    try:
+        with socket.create_connection((parsed.hostname, port), timeout=timeout) as connection:
+            connection.settimeout(timeout)
+            headers = [
+                f"OPTIONS {stream_url} RTSP/1.0",
+                "CSeq: 1",
+                "User-Agent: Pantau-Infrastruktur/1.0",
+            ]
+            username = (credentials or {}).get("username")
+            password = (credentials or {}).get("password")
+            if username and password:
+                if any(c in str(username) or c in str(password) for c in ("\r", "\n")):
+                    return ProbeResult(False, "invalid", "Kredensial tidak boleh memuat karakter baris baru")
+                token = base64.b64encode(f"{username}:{password}".encode()).decode()
+                headers.append(f"Authorization: Basic {token}")
+            connection.sendall(("\r\n".join(headers) + "\r\n\r\n").encode())
+            response = connection.recv(1024).decode("latin-1", errors="replace")
+        latency = round((time.perf_counter() - started) * 1000, 2)
+    except OSError as exc:
+        return ProbeResult(False, "offline", f"Stream tidak dapat dijangkau: {exc}")
+
+    first_line = response.splitlines()[0] if response else ""
+    if " 200 " in first_line:
+        return ProbeResult(True, "streaming", "Handshake RTSP berhasil", latency)
+    if " 401 " in first_line:
+        return ProbeResult(
+            True, "auth_failed", "Kamera terjangkau tetapi autentikasi ditolak", latency
+        )
+    return ProbeResult(
+        True, "stream_error", f"Respons RTSP tidak sehat: {first_line or 'kosong'}", latency
+    )
