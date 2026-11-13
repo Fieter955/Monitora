@@ -139,7 +139,12 @@ def bootstrap() -> None:
             raise RuntimeError("CREDENTIAL_ENCRYPTION_KEY wajib diisi untuk production")
         if settings.credential_encryption_key == settings.app_secret_key:
             raise RuntimeError("CREDENTIAL_ENCRYPTION_KEY harus berbeda dari APP_SECRET_KEY")
-        if settings.grafana_admin_password in {"", "admin", "admin12345", "replace-grafana-password"}:
+        if settings.grafana_admin_password in {
+            "",
+            "admin",
+            "admin12345",
+            "replace-grafana-password",
+        }:
             raise RuntimeError("GRAFANA_ADMIN_PASSWORD wajib diisi dan diganti untuk production")
     with SessionLocal() as db:
         if db.scalar(select(func.count()).select_from(User)) == 0:

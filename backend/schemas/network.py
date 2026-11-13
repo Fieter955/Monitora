@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from models.device import DeviceKind, NetworkRole
 from models.network import PortExpectationMode
@@ -43,6 +43,8 @@ class PortExpectationInput(BaseModel):
 
 
 class PortExpectationsUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     ports: list[PortExpectationInput]
 
 
@@ -128,6 +130,8 @@ class TopologyRead(BaseModel):
 
 
 class ManualLinkCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     local_device_id: int
     local_port_id: int | None = None
     remote_device_id: int

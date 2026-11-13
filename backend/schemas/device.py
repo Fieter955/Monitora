@@ -73,10 +73,14 @@ class DeviceBase(BaseModel):
 
 
 class DeviceCreate(DeviceBase):
+    model_config = ConfigDict(extra="forbid")
+
     credential: CredentialSecret | None = None
 
 
 class DeviceUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str | None = Field(default=None, min_length=2, max_length=160)
     kind: DeviceKind | None = None
     address: str | None = Field(default=None, min_length=2, max_length=255)
@@ -136,6 +140,8 @@ class DeviceRead(DeviceBase):
 
 
 class BulkPlacementUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     device_ids: list[int] = Field(min_length=1, max_length=100)
     room_id: int
     floorplan_x: float = Field(ge=0, le=100)

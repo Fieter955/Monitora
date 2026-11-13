@@ -17,6 +17,7 @@ class LibreNMSClient:
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.api_token = api_token
+        self._client = httpx.Client(timeout=20.0)
 
     @property
     def configured(self) -> bool:
@@ -28,15 +29,14 @@ class LibreNMSClient:
         if not self.configured:
             raise LibreNMSUnavailable("Token API LibreNMS belum dikonfigurasi")
         try:
-            with httpx.Client(timeout=20.0) as client:
-                response = client.request(
-                    method,
-                    f"{self.base_url}/api/v0{path}",
-                    headers={"X-Auth-Token": self.api_token, "Accept": "application/json"},
-                    json=payload,
-                )
-                response.raise_for_status()
-                data = response.json()
+            response = self._client.request(
+                method,
+                f"{self.base_url}/api/v0{path}",
+                headers={"X-Auth-Token": self.api_token, "Accept": "application/json"},
+                json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
         except (httpx.HTTPError, ValueError) as exc:
             raise LibreNMSUnavailable(f"LibreNMS tidak dapat dihubungi: {exc}") from exc
         if not isinstance(data, dict) or data.get("status") == "error":

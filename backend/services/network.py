@@ -1,3 +1,4 @@
+# quality: ignore[Q303] modul orkestrasi visibilitas jaringan, discovery, dan topologi
 import re
 from datetime import UTC, datetime
 from typing import Literal
@@ -430,20 +431,10 @@ def find_gateway_path_ids(
     return path_ids, True
 
 
-def get_topology(
-    db: Session,
-    room_id: int | None = None,
-    focus_device_id: int | None = None,
-    scope: Literal["all", "neighbors", "path"] = "all",
-) -> TopologyRead:
-    query = select(Device).where(Device.archived_at.is_(None), Device.is_active.is_(True))
-    if room_id is not None:
-        query = query.where(Device.room_id == room_id)
-    devices = list(db.scalars(query.order_by(Device.name)))
-    device_ids = {device.id for device in devices}
-    nodes: list[TopologyNode] = []
+def _build_topology_nodes(devices: list[Device], db: Session) -> list[TopologyNode]:
     prometheus_summary = prometheus_client.summary(devices)
     prometheus_status = {item.device_id: item.status for item in prometheus_summary.devices}
+    nodes: list[TopologyNode] = []
     for device in devices:
         health = combine_reachability(device_health(device, db), prometheus_status.get(device.id))
         nodes.append(
@@ -459,6 +450,10 @@ def get_topology(
                 network_role=device.network_role,
             )
         )
+    return nodes
+
+
+def _build_topology_edges(device_ids: set[int], db: Session) -> list[TopologyEdge]:
     ports = {port.id: port for port in db.scalars(select(NetworkPort))}
     edges: list[TopologyEdge] = []
     for link in db.scalars(select(NetworkLink).where(NetworkLink.active.is_(True))):
@@ -485,6 +480,22 @@ def get_topology(
                 utilization_percent=utilization,
             )
         )
+    return edges
+
+
+def get_topology(
+    db: Session,
+    room_id: int | None = None,
+    focus_device_id: int | None = None,
+    scope: Literal["all", "neighbors", "path"] = "all",
+) -> TopologyRead:
+    query = select(Device).where(Device.archived_at.is_(None), Device.is_active.is_(True))
+    if room_id is not None:
+        query = query.where(Device.room_id == room_id)
+    devices = list(db.scalars(query.order_by(Device.name)))
+    device_ids = {device.id for device in devices}
+    nodes = _build_topology_nodes(devices, db)
+    edges = _build_topology_edges(device_ids, db)
     path_complete: bool | None = None
     if focus_device_id is not None:
         if focus_device_id not in device_ids:

@@ -57,3 +57,8 @@ class AlertRead(BaseModel):
     summary: str
     active_since: datetime | None = None
     device_id: int | None = None
+
+
+class DiscoveryTargetGroup(BaseModel):
+    targets: list[str]
+    labels: dict[str, str]

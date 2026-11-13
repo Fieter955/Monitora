@@ -38,10 +38,11 @@ def generate_status_csv(db: Session) -> tuple[str, str]:
     )
     for device in devices:
         metric = metric_by_id.get(device.id)
+        kind_val = device.kind.value if hasattr(device.kind, "value") else device.kind
         writer.writerow(
             [
                 _sanitize_csv_cell(device.name),
-                _sanitize_csv_cell(device.kind.value if hasattr(device.kind, "value") else device.kind),
+                _sanitize_csv_cell(kind_val),
                 _sanitize_csv_cell(device.address),
                 _sanitize_csv_cell(device.location),
                 metric.status if metric else "inactive",

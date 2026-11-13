@@ -1,3 +1,6 @@
+import re
+import uuid
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
@@ -6,6 +9,7 @@ from api.routes import auth, devices, locations, monitoring, network, operations
 from core.config import settings
 from core.exceptions import (
     ConflictError,
+    DomainException,
     DuplicateDataError,
     ForbiddenError,
     InvalidArgumentError,
@@ -19,6 +23,8 @@ from core.exceptions import (
     UnsupportedMediaTypeError,
 )
 
+REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+
 app = FastAPI(
     title=settings.app_name,
     version="0.1.0",
@@ -31,8 +37,12 @@ if settings.allowed_host_list and settings.allowed_host_list != ["*"]:
 
 
 @app.middleware("http")
-async def security_headers(request, call_next):
+async def security_headers(request: Request, call_next):
+    incoming_id = request.headers.get("X-Request-ID", "")
+    request_id = incoming_id if REQUEST_ID_RE.match(incoming_id) else uuid.uuid4().hex
+    request.state.request_id = request_id
     response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
@@ -40,72 +50,30 @@ async def security_headers(request, call_next):
     return response
 
 
+@app.exception_handler(DomainException)
 @app.exception_handler(DuplicateDataError)
-def duplicate_data_error_handler(request: Request, exc: DuplicateDataError):
-    return JSONResponse(status_code=409, content={"detail": exc.detail})
-
-
 @app.exception_handler(ConflictError)
-def conflict_error_handler(request: Request, exc: ConflictError):
-    return JSONResponse(status_code=409, content={"detail": exc.detail})
-
-
 @app.exception_handler(InvalidArgumentError)
-def invalid_argument_error_handler(request: Request, exc: InvalidArgumentError):
-    return JSONResponse(status_code=400, content={"detail": exc.detail})
-
-
 @app.exception_handler(NotFoundError)
-def not_found_error_handler(request: Request, exc: NotFoundError):
-    return JSONResponse(status_code=404, content={"detail": exc.detail})
-
-
 @app.exception_handler(InvalidCredentialsError)
-def invalid_credentials_error_handler(request: Request, exc: InvalidCredentialsError):
-    return JSONResponse(
-        status_code=401,
-        headers={"WWW-Authenticate": "Bearer"},
-        content={"detail": exc.detail},
-    )
-
-
 @app.exception_handler(UnAuthorizedError)
-def un_authorized_error_handler(request: Request, exc: UnAuthorizedError):
-    return JSONResponse(
-        status_code=401,
-        headers={"WWW-Authenticate": "Bearer"},
-        content={"detail": exc.detail},
-    )
-
-
 @app.exception_handler(ForbiddenError)
-def forbidden_error_handler(request: Request, exc: ForbiddenError):
-    return JSONResponse(status_code=403, content={"detail": exc.detail})
-
-
 @app.exception_handler(UnprocessableEntityError)
-def unprocessable_entity_error_handler(request: Request, exc: UnprocessableEntityError):
-    return JSONResponse(status_code=422, content={"detail": exc.detail})
-
-
 @app.exception_handler(UnsupportedMediaTypeError)
-def unsupported_media_type_error_handler(request: Request, exc: UnsupportedMediaTypeError):
-    return JSONResponse(status_code=415, content={"detail": exc.detail})
-
-
 @app.exception_handler(PayloadTooLargeError)
-def payload_too_large_error_handler(request: Request, exc: PayloadTooLargeError):
-    return JSONResponse(status_code=413, content={"detail": exc.detail})
-
-
 @app.exception_handler(TooManyRequestsError)
-def too_many_requests_error_handler(request: Request, exc: TooManyRequestsError):
-    return JSONResponse(status_code=429, content={"detail": exc.detail})
-
-
 @app.exception_handler(ServiceUnavailableError)
-def service_unavailable_error_handler(request: Request, exc: ServiceUnavailableError):
-    return JSONResponse(status_code=503, content={"detail": exc.detail})
+def domain_exception_handler(request: Request, exc: DomainException) -> JSONResponse:
+    headers = {"WWW-Authenticate": "Bearer"} if exc.status_code == 401 else None
+    return JSONResponse(
+        status_code=exc.status_code,
+        headers=headers,
+        content={
+            "code": exc.code,
+            "detail": exc.detail,
+            "request_id": getattr(request.state, "request_id", None),
+        },
+    )
 
 
 @app.get("/health", tags=["system"])
@@ -127,3 +95,4 @@ app.include_router(system.router, prefix=api_prefix)
 app.include_router(auth.internal_router)
 app.include_router(monitoring.internal_router)
 app.include_router(network.internal_router)
+app.include_router(system.internal_router)

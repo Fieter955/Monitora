@@ -1,10 +1,16 @@
-from fastapi import APIRouter, Depends, File, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Query, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from api.deps import get_current_user, get_db, require_admin
 from models.location import Location
 from models.user import User
-from schemas.location import FloorplanRead, LocationCreate, LocationRead, LocationUpdate
+from schemas.location import (
+    FloorplanRead,
+    LocationCreate,
+    LocationDeviceRead,
+    LocationRead,
+    LocationUpdate,
+)
 from services.location import (
     MAX_FLOORPLAN_BYTES,
     get_floorplan_or_404,
@@ -34,10 +40,12 @@ router = APIRouter(prefix="/locations", tags=["locations"])
 
 @router.get("", response_model=list[LocationRead])
 def list_locations(
+    limit: int = Query(default=200, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ) -> list[Location]:
-    return list_locations_svc(db)
+    return list_locations_svc(db)[offset : offset + limit]
 
 
 @router.post("", response_model=LocationRead, status_code=status.HTTP_201_CREATED)
@@ -71,10 +79,12 @@ def delete_location(
 
 @router.get("/floorplans", response_model=list[FloorplanRead])
 def list_floorplans(
+    limit: int = Query(default=200, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ) -> list[FloorplanRead]:
-    return list_floorplans_svc(db)
+    return list_floorplans_svc(db)[offset : offset + limit]
 
 
 @router.post(
@@ -82,13 +92,13 @@ def list_floorplans(
     response_model=FloorplanRead,
     status_code=status.HTTP_201_CREATED,
 )
-async def upload_floorplan(
+def upload_floorplan(
     location_id: int,
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
     file: UploadFile = File(),
 ) -> FloorplanRead:
-    content = await file.read(MAX_FLOORPLAN_BYTES + 1)
+    content = file.file.read(MAX_FLOORPLAN_BYTES + 1)
     return upload_floorplan_svc(location_id, file.filename, file.content_type, content, db)
 
 
@@ -106,10 +116,12 @@ def floorplan_image(
     )
 
 
-@router.get("/{location_id}/devices")
+@router.get("/{location_id}/devices", response_model=list[LocationDeviceRead])
 def location_devices(
     location_id: int,
+    limit: int = Query(default=200, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ) -> list[dict]:
-    return get_location_devices(location_id, db)
+    return get_location_devices(location_id, db)[offset : offset + limit]

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status
 from sqlalchemy.orm import Session
 
 from api.deps import get_current_user, get_db, require_admin
@@ -30,10 +30,12 @@ router = APIRouter(prefix="/devices", tags=["devices"])
 
 @router.get("", response_model=list[DeviceRead])
 def list_devices(
+    limit: int = Query(default=200, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ) -> list[Device]:
-    return list_devices_svc(db)
+    return list_devices_svc(db)[offset : offset + limit]
 
 
 @router.patch("/bulk-placement", response_model=list[DeviceRead])
@@ -47,10 +49,12 @@ def bulk_place_devices_api(
 
 @router.get("/credentials/profiles", response_model=list[CredentialProfileRead])
 def list_credentials(
+    limit: int = Query(default=200, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     _: User = Depends(require_admin),
 ) -> list[CredentialProfile]:
-    return list_credential_profiles(db)
+    return list_credential_profiles(db)[offset : offset + limit]
 
 
 @router.post("", response_model=DeviceRead, status_code=status.HTTP_201_CREATED)

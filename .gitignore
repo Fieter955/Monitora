@@ -17,3 +17,5 @@ secrets/*
 .coverage
 *.egg-info/
 *.tsbuildinfo
+
+.agents/

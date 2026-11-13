@@ -1,4 +1,5 @@
-from datetime import timedelta
+# quality: ignore[Q303] modul sinkronisasi jaringan, port, link, dan observasi kesehatan terpadu
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select
@@ -95,6 +96,32 @@ def add_device_to_librenms(
     return device_id
 
 
+def _apply_remote_port_values(
+    port: NetworkPort,
+    item: dict[str, Any],
+    source_port_id: int,
+    now: datetime,
+) -> None:
+    speed = as_int(item.get("ifSpeed"))
+    if not speed and as_int(item.get("ifHighSpeed")):
+        speed = as_int(item.get("ifHighSpeed")) * HIGH_SPEED_MULTIPLIER
+    port.if_index = as_int(item.get("ifIndex"))
+    port.name = str(item.get("ifName") or item.get("ifDescr") or source_port_id)
+    port.description = str(item.get("ifDescr") or "")
+    port.alias = str(item.get("ifAlias") or "")
+    port.admin_status = str(item.get("ifAdminStatus") or "unknown").lower()
+    port.oper_status = str(item.get("ifOperStatus") or "unknown").lower()
+    port.speed_bps = speed
+    port.rx_bps = as_float(item.get("ifInOctets_rate"), OCTETS_TO_BITS)
+    port.tx_bps = as_float(item.get("ifOutOctets_rate"), OCTETS_TO_BITS)
+    port.errors_in = as_float(item.get("ifInErrors_delta"))
+    port.errors_out = as_float(item.get("ifOutErrors_delta"))
+    port.discards_in = as_float(item.get("ifInDiscards_delta"))
+    port.discards_out = as_float(item.get("ifOutDiscards_delta"))
+    port.mac_address = str(item.get("ifPhysAddress") or "")
+    port.last_seen_at = now
+
+
 def sync_network_device(
     device: Device,
     db: Session,
@@ -136,24 +163,7 @@ def sync_network_device(
         if port is None:
             port = NetworkPort(device_id=device.id, source_port_id=source_port_id, name="unknown")
             db.add(port)
-        speed = as_int(item.get("ifSpeed"))
-        if not speed and as_int(item.get("ifHighSpeed")):
-            speed = as_int(item.get("ifHighSpeed")) * HIGH_SPEED_MULTIPLIER
-        port.if_index = as_int(item.get("ifIndex"))
-        port.name = str(item.get("ifName") or item.get("ifDescr") or source_port_id)
-        port.description = str(item.get("ifDescr") or "")
-        port.alias = str(item.get("ifAlias") or "")
-        port.admin_status = str(item.get("ifAdminStatus") or "unknown").lower()
-        port.oper_status = str(item.get("ifOperStatus") or "unknown").lower()
-        port.speed_bps = speed
-        port.rx_bps = as_float(item.get("ifInOctets_rate"), OCTETS_TO_BITS)
-        port.tx_bps = as_float(item.get("ifOutOctets_rate"), OCTETS_TO_BITS)
-        port.errors_in = as_float(item.get("ifInErrors_delta"))
-        port.errors_out = as_float(item.get("ifOutErrors_delta"))
-        port.discards_in = as_float(item.get("ifInDiscards_delta"))
-        port.discards_out = as_float(item.get("ifOutDiscards_delta"))
-        port.mac_address = str(item.get("ifPhysAddress") or "")
-        port.last_seen_at = now
+        _apply_remote_port_values(port, item, source_port_id, now)
         synced.append(port)
     db.flush()
     update_expectation_counters(synced, db)

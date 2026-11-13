@@ -16,10 +16,12 @@ class LocationBase(BaseModel):
 
 
 class LocationCreate(LocationBase):
-    pass
+    model_config = ConfigDict(extra="forbid")
 
 
 class LocationUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str | None = Field(default=None, min_length=1, max_length=160)
     parent_id: int | None = None
     sort_order: int | None = None
@@ -45,3 +47,15 @@ class FloorplanRead(BaseModel):
     content_type: str
     image_url: str
     updated_at: datetime
+
+
+class LocationDeviceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    kind: str
+    address: str
+    floorplan_x: float | None
+    floorplan_y: float | None
+    monitoring_level: str

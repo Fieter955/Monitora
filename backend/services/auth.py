@@ -1,6 +1,6 @@
+import time
 from collections import defaultdict
 from threading import Lock
-import time
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session

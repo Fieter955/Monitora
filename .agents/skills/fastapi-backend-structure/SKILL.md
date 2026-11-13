@@ -213,3 +213,10 @@ Setiap subclass `DomainException` ditangani dengan `@app.exception_handler(...)`
      ```
    - Jika script auditor melaporkan pelanggaran (`[FAIL]`), perbaiki hingga 0 pelanggaran sebelum menyelesaikan tugas. Jika ada test suite (`pytest`), jalankan dan pastikan lulus.
 
+
+---
+
+## 5. Langkah Lanjutan
+
+Setelah struktur lulus audit, terapkan standar mutu isi kode (kontrak endpoint, format error seragam, transaksi, testing, tooling) dari skill `fastapi-code-quality`.
+

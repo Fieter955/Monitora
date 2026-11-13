@@ -8,6 +8,8 @@ import httpx
 
 from core.config import settings
 
+_http_client = httpx.Client(timeout=6.0)
+
 
 @dataclass
 class ProbeResult:
@@ -31,7 +33,7 @@ def icmp_probe(address: str, timeout: float = 6.0) -> ProbeResult:
     """Run the same ICMP probe used by Prometheus through Blackbox Exporter."""
     started = time.perf_counter()
     try:
-        response = httpx.get(
+        response = _http_client.get(
             f"{settings.blackbox_exporter_url.rstrip('/')}/probe",
             params={"module": "icmp", "target": address},
             timeout=timeout,
@@ -59,12 +61,16 @@ def rtsp_probe(
     timeout: float = 4.0,
 ) -> ProbeResult:
     if any(char in stream_url for char in ("\r", "\n", " ", "\t")):
-        return ProbeResult(False, "invalid", "URL stream tidak boleh memuat spasi atau karakter baris baru")
+        return ProbeResult(
+            False, "invalid", "URL stream tidak boleh memuat spasi atau karakter baris baru"
+        )
     parsed = urlparse(stream_url)
     if parsed.scheme.lower() != "rtsp" or not parsed.hostname:
         return ProbeResult(False, "invalid", "URL stream harus memakai skema rtsp:// yang valid")
     if parsed.username or parsed.password:
-        return ProbeResult(False, "invalid", "Kredensial tidak boleh disertakan langsung pada URL stream")
+        return ProbeResult(
+            False, "invalid", "Kredensial tidak boleh disertakan langsung pada URL stream"
+        )
     port = parsed.port or 554
     started = time.perf_counter()
     try:
@@ -79,7 +85,9 @@ def rtsp_probe(
             password = (credentials or {}).get("password")
             if username and password:
                 if any(c in str(username) or c in str(password) for c in ("\r", "\n")):
-                    return ProbeResult(False, "invalid", "Kredensial tidak boleh memuat karakter baris baru")
+                    return ProbeResult(
+                        False, "invalid", "Kredensial tidak boleh memuat karakter baris baru"
+                    )
                 token = base64.b64encode(f"{username}:{password}".encode()).decode()
                 headers.append(f"Authorization: Basic {token}")
             connection.sendall(("\r\n".join(headers) + "\r\n\r\n").encode())

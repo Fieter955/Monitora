@@ -1,4 +1,5 @@
 import pytest
+
 from bootstrap import bootstrap
 from core.config import settings
 from db.session import SessionLocal
@@ -134,8 +135,12 @@ def test_bootstrap_production_enforces_grafana_password(monkeypatch):
     monkeypatch.setattr(settings, "app_env", "production")
     monkeypatch.setattr(settings, "app_secret_key", "a-very-long-production-secret-key-1234567890")
     monkeypatch.setattr(settings, "admin_password", "strong-production-admin-pass-123")
-    monkeypatch.setattr(settings, "credential_encryption_key", "different-32-character-encryption-key-ok")
+    monkeypatch.setattr(
+        settings, "credential_encryption_key", "different-32-character-encryption-key-ok"
+    )
     monkeypatch.setattr(settings, "grafana_admin_password", "admin")
 
-    with pytest.raises(RuntimeError, match="GRAFANA_ADMIN_PASSWORD wajib diisi dan diganti untuk production"):
+    with pytest.raises(
+        RuntimeError, match="GRAFANA_ADMIN_PASSWORD wajib diisi dan diganti untuk production"
+    ):
         bootstrap()

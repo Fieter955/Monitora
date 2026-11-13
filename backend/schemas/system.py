@@ -10,3 +10,7 @@ class SystemCapabilities(BaseModel):
     grafana: bool = True
     vmware: bool
     advanced_topology: bool
+
+
+class HealthStatus(BaseModel):
+    status: str

@@ -219,7 +219,7 @@ def audit_backend(root: Path) -> list[str]:
                         )
 
         if rel_path.parts[:2] == ("api", "routes") and py_file.name != "__init__.py":
-            router_http_methods = {"get", "post", "put", "patch", "delete", "options", "head", "api_route"}
+            router_http_methods = {"get", "post", "put", "patch", "delete", "options", "head", "api_route", "websocket"}
             for item in tree.body:
                 if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     if not item.name.startswith("_"):

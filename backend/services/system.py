@@ -1,5 +1,9 @@
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from core.config import settings
-from schemas.system import SystemCapabilities
+from core.exceptions import ServiceUnavailableError
+from schemas.system import HealthStatus, SystemCapabilities
 
 
 def get_system_capabilities() -> SystemCapabilities:
@@ -10,3 +14,11 @@ def get_system_capabilities() -> SystemCapabilities:
         vmware=settings.enable_vmware,
         advanced_topology=settings.enable_advanced_topology and not settings.native_windows,
     )
+
+
+def check_db_ready(db: Session) -> HealthStatus:
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception as exc:
+        raise ServiceUnavailableError("Database belum siap") from exc
+    return HealthStatus(status="ready")

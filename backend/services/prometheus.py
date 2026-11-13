@@ -34,6 +34,45 @@ ALERT_DISPLAY_NAMES = {
     "GangguanDNS": "Layanan DNS bermasalah",
     "ServiceWindowsBerhenti": "Service Windows berhenti",
 }
+SUMMARY_QUERIES: dict[str, tuple[str, bool]] = {
+    "up": ("up", False),
+    "probe": ("probe_success", False),
+    "cpu": (
+        '(100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) or '
+        '(100 - (avg by(instance) (rate(windows_cpu_time_total{mode="idle"}[5m])) * 100))',
+        False,
+    ),
+    "memory": (
+        "100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) or "
+        "100 * (1 - (windows_memory_available_bytes / windows_memory_physical_total_bytes)) or "
+        "100 * (1 - (windows_memory_available_bytes / windows_cs_physical_memory_bytes))",
+        False,
+    ),
+    "disk": (
+        '(100 * (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} '
+        '/ node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}))) or '
+        '(100 * (1 - (windows_logical_disk_free_bytes{volume!="_Total"} '
+        '/ windows_logical_disk_size_bytes{volume!="_Total"})))',
+        True,
+    ),
+    "uptime": (
+        "(time() - node_boot_time_seconds) or "
+        "(time() - windows_system_boot_time_timestamp) or (time() - windows_system_system_up_time)",
+        False,
+    ),
+    "receive": (
+        'sum by(instance) (rate(node_network_receive_bytes_total{device!~"lo|veth.*"}[5m])) or '
+        "sum by(instance) (rate(windows_net_bytes_received_total[5m])) or "
+        "sum by(instance) (rate(ifHCInOctets[5m]))",
+        False,
+    ),
+    "transmit": (
+        'sum by(instance) (rate(node_network_transmit_bytes_total{device!~"lo|veth.*"}[5m])) or '
+        "sum by(instance) (rate(windows_net_bytes_sent_total[5m])) or "
+        "sum by(instance) (rate(ifHCOutOctets[5m]))",
+        False,
+    ),
+}
 
 
 def _promql_string(value: str) -> str:
@@ -54,15 +93,55 @@ def _metric_map(result: list[dict[str, Any]], *, use_max: bool = False) -> dict[
     return values
 
 
+def _diagnose_internet_state(
+    gateway_up: bool | None,
+    wan_up: bool | None,
+    internet_ip: bool | None,
+    dns: bool | None,
+    https: bool | None,
+) -> tuple[str, str, str]:
+    if gateway_up is False:
+        msg = "Gateway MikroTik tidak terjangkau dari server monitoring."
+        return ("critical", "lan_or_router", msg)
+    if wan_up is False:
+        return ("critical", "wan_link", "Interface WAN MikroTik dalam kondisi down.")
+    if internet_ip is False:
+        msg = "Gateway aktif, tetapi target internet independen tidak dapat dijangkau."
+        return ("critical", "isp_upstream", msg)
+    if dns is False:
+        return ("warning", "dns", "Akses IP internet berhasil, tetapi pemeriksaan DNS gagal.")
+    if https is False:
+        return ("warning", "https", "Internet dan DNS aktif, tetapi pemeriksaan HTTPS gagal.")
+    if all(value is True for value in (gateway_up, internet_ip, dns, https)):
+        return ("healthy", "none", "Jalur internet dan layanan dasar berjalan normal.")
+    return ("unknown", "unknown", "Data diagnosis internet belum lengkap.")
+
+
+def _build_device_metric(device: Device, maps: dict[str, dict[str, float]]) -> DeviceMetric:
+    target = device.prometheus_target
+    up_map = maps["probe"] if device.prometheus_job in {"icmp", "blackbox"} else maps["up"]
+    up_value = up_map.get(target)
+    status = "online" if up_value == 1 else "offline" if up_value == 0 else "unknown"
+    return DeviceMetric(
+        device_id=device.id, status=status,
+        cpu_percent=_rounded(maps["cpu"].get(target)),
+        memory_percent=_rounded(maps["memory"].get(target)),
+        disk_percent=_max_rounded(maps["disk"], target),
+        uptime_seconds=_rounded(maps["uptime"].get(target)),
+        receive_bytes_per_second=_rounded(maps["receive"].get(target)),
+        transmit_bytes_per_second=_rounded(maps["transmit"].get(target)),
+    )
+
+
 class PrometheusClient:
     def __init__(self, base_url: str = settings.prometheus_url) -> None:
         self.base_url = base_url.rstrip("/")
+        self._client = httpx.Client(timeout=4.0)
 
     def _get(self, path: str, params: dict[str, str] | None = None) -> Any:
-        with httpx.Client(timeout=4.0) as client:
-            response = client.get(f"{self.base_url}{path}", params=params)
-            response.raise_for_status()
-            payload = response.json()
+        response = self._client.get(f"{self.base_url}{path}", params=params)
+        response.raise_for_status()
+        payload = response.json()
         if payload.get("status") != "success":
             raise RuntimeError(payload.get("error", "Respons Prometheus tidak valid"))
         return payload.get("data")
@@ -73,10 +152,7 @@ class PrometheusClient:
 
     def snmp_interfaces(self, target: str) -> list[SnmpInterfaceRead]:
         escaped = _promql_string(target)
-        series = self._get(
-            "/api/v1/series",
-            {"match[]": f'ifOperStatus{{instance="{escaped}"}}'},
-        )
+        series = self._get("/api/v1/series", {"match[]": f'ifOperStatus{{instance="{escaped}"}}'})
         results: dict[int, SnmpInterfaceRead] = {}
         for labels in series if isinstance(series, list) else []:
             try:
@@ -104,11 +180,7 @@ class PrometheusClient:
 
     def internet_health(self, devices: list[Device], checked_at: datetime) -> InternetHealth | None:
         gateway = next(
-            (
-                device
-                for device in devices
-                if device.network_role == NetworkRole.GATEWAY.value and device.is_active
-            ),
+            (d for d in devices if d.network_role == NetworkRole.GATEWAY.value and d.is_active),
             None,
         )
         if gateway is None:
@@ -126,170 +198,44 @@ class PrometheusClient:
         internet_ip = _any_bool(self.query('probe_success{job="internet-ip"}'))
         dns = _single_bool(self.query('probe_success{job="internet-dns"}'))
         https = _single_bool(self.query('probe_success{job="internet-https"}'))
-        if gateway_up is False:
-            status, cause, summary = (
-                "critical",
-                "lan_or_router",
-                "Gateway MikroTik tidak terjangkau dari server monitoring.",
-            )
-        elif wan_up is False:
-            status, cause, summary = (
-                "critical",
-                "wan_link",
-                "Interface WAN MikroTik dalam kondisi down.",
-            )
-        elif internet_ip is False:
-            status, cause, summary = (
-                "critical",
-                "isp_upstream",
-                "Gateway aktif, tetapi target internet independen tidak dapat dijangkau.",
-            )
-        elif dns is False:
-            status, cause, summary = (
-                "warning",
-                "dns",
-                "Akses IP internet berhasil, tetapi pemeriksaan DNS gagal.",
-            )
-        elif https is False:
-            status, cause, summary = (
-                "warning",
-                "https",
-                "Internet dan DNS aktif, tetapi pemeriksaan HTTPS gagal.",
-            )
-        elif all(value is True for value in (gateway_up, internet_ip, dns, https)):
-            status, cause, summary = (
-                "healthy",
-                "none",
-                "Jalur internet dan layanan dasar berjalan normal.",
-            )
-        else:
-            status, cause, summary = "unknown", "unknown", "Data diagnosis internet belum lengkap."
+        status, cause, summary = _diagnose_internet_state(
+            gateway_up, wan_up, internet_ip, dns, https
+        )
         return InternetHealth(
-            status=status,
-            cause=cause,
-            summary=summary,
-            gateway_device_id=gateway.id,
-            gateway_reachable=gateway_up,
-            wan_oper_up=wan_up,
-            internet_ip_reachable=internet_ip,
-            dns_reachable=dns,
-            https_reachable=https,
-            checked_at=checked_at,
+            status=status, cause=cause, summary=summary, gateway_device_id=gateway.id,
+            gateway_reachable=gateway_up, wan_oper_up=wan_up, internet_ip_reachable=internet_ip,
+            dns_reachable=dns, https_reachable=https, checked_at=checked_at,
         )
 
     def summary(self, devices: list[Device]) -> MonitoringSummary:
         checked_at = datetime.now(UTC)
         if not devices:
             return MonitoringSummary(
-                available=True,
-                checked_at=checked_at,
-                total_devices=0,
-                online_devices=0,
-                offline_devices=0,
-                unknown_devices=0,
-                firing_alerts=0,
-                devices=[],
+                available=True, checked_at=checked_at, total_devices=0, online_devices=0,
+                offline_devices=0, unknown_devices=0, firing_alerts=0, devices=[],
             )
-
         try:
-            up = _metric_map(self.query("up"))
-            probe = _metric_map(self.query("probe_success"))
-            cpu = _metric_map(
-                self.query(
-                    "(100 - (avg by(instance) "
-                    '(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) or '
-                    "(100 - (avg by(instance) "
-                    '(rate(windows_cpu_time_total{mode="idle"}[5m])) * 100))'
-                )
-            )
-            memory = _metric_map(
-                self.query(
-                    "100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) "
-                    "or 100 * (1 - (windows_memory_available_bytes / "
-                    "windows_memory_physical_total_bytes)) or "
-                    "100 * (1 - (windows_memory_available_bytes / "
-                    "windows_cs_physical_memory_bytes))"
-                )
-            )
-            disk = _metric_map(
-                self.query(
-                    '(100 * (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} '
-                    '/ node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}))) or '
-                    '(100 * (1 - (windows_logical_disk_free_bytes{volume!="_Total"} '
-                    '/ windows_logical_disk_size_bytes{volume!="_Total"})))'
-                ),
-                use_max=True,
-            )
-            uptime = _metric_map(
-                self.query(
-                    "(time() - node_boot_time_seconds) or "
-                    "(time() - windows_system_boot_time_timestamp) or "
-                    "(time() - windows_system_system_up_time)"
-                )
-            )
-            receive = _metric_map(
-                self.query(
-                    "sum by(instance) (rate(node_network_receive_bytes_total"
-                    '{device!~"lo|veth.*"}[5m])) or '
-                    "sum by(instance) (rate(windows_net_bytes_received_total[5m])) or "
-                    "sum by(instance) (rate(ifHCInOctets[5m]))"
-                )
-            )
-            transmit = _metric_map(
-                self.query(
-                    "sum by(instance) (rate(node_network_transmit_bytes_total"
-                    '{device!~"lo|veth.*"}[5m])) or '
-                    "sum by(instance) (rate(windows_net_bytes_sent_total[5m])) or "
-                    "sum by(instance) (rate(ifHCOutOctets[5m]))"
-                )
-            )
+            maps = {
+                key: _metric_map(self.query(expr), use_max=use_max)
+                for key, (expr, use_max) in SUMMARY_QUERIES.items()
+            }
             alerts = self.alerts()
             internet_health = self.internet_health(devices, checked_at)
         except (httpx.HTTPError, RuntimeError, ValueError) as exc:
             return MonitoringSummary(
-                available=False,
-                checked_at=checked_at,
-                total_devices=len(devices),
-                online_devices=0,
-                offline_devices=0,
-                unknown_devices=len(devices),
-                firing_alerts=0,
-                devices=[DeviceMetric(device_id=device.id, status="unknown") for device in devices],
+                available=False, checked_at=checked_at, total_devices=len(devices),
+                online_devices=0, offline_devices=0, unknown_devices=len(devices), firing_alerts=0,
+                devices=[DeviceMetric(device_id=d.id, status="unknown") for d in devices],
                 message=f"Prometheus belum dapat dihubungi: {exc}",
             )
-
-        metrics: list[DeviceMetric] = []
-        for device in devices:
-            target = device.prometheus_target
-            up_value = (
-                probe.get(target)
-                if device.prometheus_job in {"icmp", "blackbox"}
-                else up.get(target)
-            )
-            status = "online" if up_value == 1 else "offline" if up_value == 0 else "unknown"
-            metrics.append(
-                DeviceMetric(
-                    device_id=device.id,
-                    status=status,
-                    cpu_percent=_rounded(cpu.get(target)),
-                    memory_percent=_rounded(memory.get(target)),
-                    disk_percent=_max_rounded(disk, target),
-                    uptime_seconds=_rounded(uptime.get(target)),
-                    receive_bytes_per_second=_rounded(receive.get(target)),
-                    transmit_bytes_per_second=_rounded(transmit.get(target)),
-                )
-            )
-
+        metrics = [_build_device_metric(device, maps) for device in devices]
         return MonitoringSummary(
-            available=True,
-            checked_at=checked_at,
-            total_devices=len(devices),
+            available=True, checked_at=checked_at, total_devices=len(devices),
             online_devices=sum(item.status == "online" for item in metrics),
             offline_devices=sum(item.status == "offline" for item in metrics),
             unknown_devices=sum(item.status == "unknown" for item in metrics),
             firing_alerts=sum(item.state == "firing" for item in alerts),
-            devices=metrics,
-            internet_health=internet_health,
+            devices=metrics, internet_health=internet_health,
         )
 
     def alerts(self) -> list[AlertRead]:
@@ -307,6 +253,7 @@ class PrometheusClient:
                 parsed_active_at = datetime.fromisoformat(active_at.replace("Z", "+00:00"))
             except (AttributeError, ValueError):
                 parsed_active_at = None
+            raw_id = str(labels.get("device_id", ""))
             alerts.append(
                 AlertRead(
                     name=ALERT_DISPLAY_NAMES.get(
@@ -317,11 +264,7 @@ class PrometheusClient:
                     instance=labels.get("instance", labels.get("job", "-")),
                     summary=annotations.get("summary", annotations.get("description", "")),
                     active_since=parsed_active_at,
-                    device_id=(
-                        int(labels["device_id"])
-                        if str(labels.get("device_id", "")).isdigit()
-                        else None
-                    ),
+                    device_id=int(labels["device_id"]) if raw_id.isdigit() else None,
                 )
             )
         return alerts
@@ -332,8 +275,7 @@ def _rounded(value: float | None) -> float | None:
 
 
 def _max_rounded(values: dict[str, float], target: str) -> float | None:
-    value = values.get(target)
-    return _rounded(value)
+    return _rounded(values.get(target))
 
 
 def _single_bool(result: list[dict[str, Any]]) -> bool | None:
@@ -348,8 +290,7 @@ def _single_bool(result: list[dict[str, Any]]) -> bool | None:
 def _any_bool(result: list[dict[str, Any]]) -> bool | None:
     if not result:
         return None
-    values = [_single_bool([item]) for item in result]
-    known = [value for value in values if value is not None]
+    known = [v for v in (_single_bool([item]) for item in result) if v is not None]
     return any(known) if known else None
 
 

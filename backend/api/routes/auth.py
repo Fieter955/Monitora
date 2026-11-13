@@ -12,7 +12,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 internal_router = APIRouter(prefix="/internal/auth", tags=["internal"], include_in_schema=False)
 
 
-@router.post("/login", response_model=UserRead)
+@router.post("/login", response_model=UserRead, status_code=status.HTTP_200_OK)
 def login(
     payload: LoginRequest,
     request: Request,
@@ -35,7 +35,7 @@ def login(
     return user
 
 
-@router.post("/logout", response_model=ApiMessage)
+@router.post("/logout", response_model=ApiMessage, status_code=status.HTTP_200_OK)
 def logout(response: Response) -> ApiMessage:
     response.delete_cookie("access_token", path="/")
     return ApiMessage(message="Sesi telah diakhiri")
