@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from pathlib import Path
 
 import httpx
 from test_devices import DEVICE
@@ -156,4 +157,102 @@ def test_alert_parser_handles_alerts_endpoint_failure(monkeypatch):
 
     monkeypatch.setattr(client, "_get", fail_get)
     assert client.alerts() == []
+
+
+def test_prometheus_summary_maps_snmp_device_metrics(monkeypatch):
+    client = PrometheusClient("http://prometheus.test")
+    device = Device(
+        id=12,
+        name="Mikrotik Staff",
+        kind=DeviceKind.ROUTER.value,
+        address="12.12.12.2",
+        prometheus_job="snmp",
+        prometheus_target="12.12.12.2",
+    )
+    expressions: list[str] = []
+
+    def query(expression):
+        expressions.append(expression)
+        if expression == "up":
+            return [{"metric": {"instance": device.prometheus_target}, "value": [0, "1"]}]
+        if "hrProcessorLoad" in expression:
+            return [{"metric": {"instance": device.prometheus_target}, "value": [0, "14.5"]}]
+        if "1.3.6.1.2.1.25.2.1.2" in expression:
+            return [{"metric": {"instance": device.prometheus_target}, "value": [0, "38.2"]}]
+        if "1[.]3[.]6[.]1[.]2[.]1[.]25[.]2[.]1[.](4|9)" in expression:
+            return [{"metric": {"instance": device.prometheus_target}, "value": [0, "27.8"]}]
+        if "sysUpTime / 100" in expression:
+            return [{"metric": {"instance": device.prometheus_target}, "value": [0, "172800"]}]
+        if "ifHCInOctets" in expression:
+            return [{"metric": {"instance": device.prometheus_target}, "value": [0, "2048"]}]
+        if "ifHCOutOctets" in expression:
+            return [{"metric": {"instance": device.prometheus_target}, "value": [0, "4096"]}]
+        return []
+
+    monkeypatch.setattr(client, "query", query)
+    monkeypatch.setattr(client, "alerts", lambda: [])
+
+    summary = client.summary([device])
+
+    assert summary.available is True
+    assert summary.online_devices == 1
+    metric = summary.devices[0]
+    assert metric.status == "online"
+    assert metric.cpu_percent == 14.5
+    assert metric.memory_percent == 38.2
+    assert metric.disk_percent == 27.8
+    assert metric.uptime_seconds == 172800.0
+    assert metric.receive_bytes_per_second == 2048.0
+    assert metric.transmit_bytes_per_second == 4096.0
+    assert any("hrProcessorLoad" in expr for expr in expressions)
+    assert any(
+        "hrStorageUsed" in expr and "1.3.6.1.2.1.25.2.1.2" in expr
+        for expr in expressions
+    )
+    assert any(
+        "hrStorageUsed" in expr and "1[.]3[.]6[.]1[.]2[.]1[.]25[.]2[.]1[.](4|9)" in expr
+        for expr in expressions
+    )
+    assert any("sysUpTime / 100" in expr for expr in expressions)
+
+
+def test_prometheus_metric_map_ignores_non_finite_values(monkeypatch):
+    client = PrometheusClient("http://prometheus.test")
+    device = Device(
+        id=13,
+        name="Mikrotik Uji",
+        kind=DeviceKind.ROUTER.value,
+        address="12.12.12.3",
+        prometheus_job="snmp",
+        prometheus_target="12.12.12.3",
+    )
+
+    def query(expression):
+        if expression == "up":
+            return [{"metric": {"instance": device.prometheus_target}, "value": [0, "1"]}]
+        if "hrProcessorLoad" in expression:
+            return [{"metric": {"instance": device.prometheus_target}, "value": [0, "NaN"]}]
+        if "1.3.6.1.2.1.25.2.1.2" in expression:
+            return [{"metric": {"instance": device.prometheus_target}, "value": [0, "+Inf"]}]
+        if "1[.]3[.]6[.]1[.]2[.]1[.]25[.]2[.]1[.](4|9)" in expression:
+            return [{"metric": {"instance": device.prometheus_target}, "value": [0, "-Inf"]}]
+        return []
+
+    monkeypatch.setattr(client, "query", query)
+    monkeypatch.setattr(client, "alerts", lambda: [])
+
+    summary = client.summary([device])
+
+    assert summary.available is True
+    assert summary.devices[0].status == "online"
+    assert summary.devices[0].cpu_percent is None
+    assert summary.devices[0].memory_percent is None
+    assert summary.devices[0].disk_percent is None
+
+
+def test_prometheus_snmp_configs_enable_host_resource_modules():
+    repo_root = Path(__file__).resolve().parents[2]
+    for relative in ("infra/prometheus/prometheus.yml", "infra/windows/prometheus.yml"):
+        content = (repo_root / relative).read_text(encoding="utf-8")
+        assert "module: [if_mib, hrDevice, hrStorage, system]" in content
 

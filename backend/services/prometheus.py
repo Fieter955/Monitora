@@ -1,3 +1,4 @@
+import math
 from datetime import UTC, datetime
 from typing import Any
 
@@ -34,30 +35,46 @@ ALERT_DISPLAY_NAMES = {
     "GangguanDNS": "Layanan DNS bermasalah",
     "ServiceWindowsBerhenti": "Service Windows berhenti",
 }
+SNMP_RAM_TYPE = 'hrStorageType="1.3.6.1.2.1.25.2.1.2"'
+SNMP_RAM_DESCR = 'hrStorageDescr=~"(?i)^(main memory|physical memory|memory|ram)$"'
+SNMP_DISK_TYPE = 'hrStorageType=~"1[.]3[.]6[.]1[.]2[.]1[.]25[.]2[.]1[.](4|9)"'
+SNMP_DISK_DESCR = 'hrStorageDescr=~"(?i)^(system disk|flash|disk|nand).*$"'
+
 SUMMARY_QUERIES: dict[str, tuple[str, bool]] = {
     "up": ("up", False),
     "probe": ("probe_success", False),
     "cpu": (
         '(100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) or '
-        '(100 - (avg by(instance) (rate(windows_cpu_time_total{mode="idle"}[5m])) * 100))',
+        '(100 - (avg by(instance) (rate(windows_cpu_time_total{mode="idle"}[5m])) * 100)) or '
+        "avg by(instance) (hrProcessorLoad)",
         False,
     ),
     "memory": (
         "100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) or "
         "100 * (1 - (windows_memory_available_bytes / windows_memory_physical_total_bytes)) or "
-        "100 * (1 - (windows_memory_available_bytes / windows_cs_physical_memory_bytes))",
+        "100 * (1 - (windows_memory_available_bytes / windows_cs_physical_memory_bytes)) or "
+        f"max by(instance) (100 * hrStorageUsed{{{SNMP_RAM_TYPE}}} / "
+        f"(hrStorageSize{{{SNMP_RAM_TYPE}}} > 0)) or "
+        f"max by(instance) (100 * hrStorageUsed{{{SNMP_RAM_DESCR}}} / "
+        f"(hrStorageSize{{{SNMP_RAM_DESCR}}} > 0))",
         False,
     ),
     "disk": (
         '(100 * (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} '
         '/ node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}))) or '
         '(100 * (1 - (windows_logical_disk_free_bytes{volume!="_Total"} '
-        '/ windows_logical_disk_size_bytes{volume!="_Total"})))',
+        '/ windows_logical_disk_size_bytes{volume!="_Total"}))) or '
+        f"max by(instance) (100 * hrStorageUsed{{{SNMP_DISK_TYPE}}} / "
+        f"(hrStorageSize{{{SNMP_DISK_TYPE}}} > 0)) or "
+        f"max by(instance) (100 * hrStorageUsed{{{SNMP_DISK_DESCR}}} / "
+        f"(hrStorageSize{{{SNMP_DISK_DESCR}}} > 0))",
         True,
     ),
     "uptime": (
         "(time() - node_boot_time_seconds) or "
-        "(time() - windows_system_boot_time_timestamp) or (time() - windows_system_system_up_time)",
+        "(time() - windows_system_boot_time_timestamp) or "
+        "(time() - windows_system_system_up_time) or "
+        "(sysUpTime / 100)",
         False,
     ),
     "receive": (
@@ -87,6 +104,8 @@ def _metric_map(result: list[dict[str, Any]], *, use_max: bool = False) -> dict[
         if instance and raw_value is not None:
             try:
                 value = float(raw_value)
+                if not math.isfinite(value):
+                    continue
                 values[instance] = max(values.get(instance, value), value) if use_max else value
             except (TypeError, ValueError):
                 continue

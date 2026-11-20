@@ -1,4 +1,5 @@
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
@@ -35,8 +36,20 @@ class LibreNMSClient:
                 headers={"X-Auth-Token": self.api_token, "Accept": "application/json"},
                 json=payload,
             )
-            response.raise_for_status()
+            if response.is_error:
+                detail = ""
+                try:
+                    err_body = response.json()
+                    if isinstance(err_body, dict) and err_body.get("message"):
+                        detail = f" ({err_body['message']})"
+                except ValueError:
+                    pass
+                raise LibreNMSUnavailable(
+                    f"LibreNMS menolak permintaan (HTTP {response.status_code}){detail}"
+                )
             data = response.json()
+        except LibreNMSUnavailable:
+            raise
         except (httpx.HTTPError, ValueError) as exc:
             raise LibreNMSUnavailable(f"LibreNMS tidak dapat dihubungi: {exc}") from exc
         if not isinstance(data, dict) or data.get("status") == "error":
@@ -52,6 +65,30 @@ class LibreNMSClient:
         self._request("GET", "")
         return True
 
+    def find_device_by_hostname(self, hostname: str) -> int | None:
+        if not self.configured:
+            raise LibreNMSUnavailable("Token API LibreNMS belum dikonfigurasi")
+        encoded = quote(hostname.strip(), safe="")
+        try:
+            response = self._client.request(
+                "GET",
+                f"{self.base_url}/api/v0/devices/{encoded}",
+                headers={"X-Auth-Token": self.api_token, "Accept": "application/json"},
+            )
+            if response.status_code == 404 or response.is_error:
+                return None
+            data = response.json()
+        except (httpx.HTTPError, ValueError):
+            return None
+        devices = data.get("devices", []) if isinstance(data, dict) else []
+        if (
+            devices
+            and isinstance(devices[0], dict)
+            and devices[0].get("device_id") is not None
+        ):
+            return int(devices[0]["device_id"])
+        return None
+
     def add_device(
         self,
         hostname: str,
@@ -59,6 +96,9 @@ class LibreNMSClient:
         location: str,
         credentials: dict[str, str] | None,
     ) -> int:
+        existing_id = self.find_device_by_hostname(hostname)
+        if existing_id is not None:
+            return existing_id
         payload: dict[str, Any] = {
             "hostname": hostname,
             "display_template": display_name,
@@ -106,9 +146,8 @@ class LibreNMSClient:
     def get_ports(self, device_id: int) -> list[dict[str, Any]]:
         columns = (
             "port_id,device_id,ifIndex,ifName,ifDescr,ifAlias,ifAdminStatus,"
-            "ifOperStatus,ifSpeed,ifHighSpeed,ifPhysAddress,ifInOctets_rate,"
-            "ifOutOctets_rate,ifInErrors_delta,ifOutErrors_delta,"
-            "ifInDiscards_delta,ifOutDiscards_delta"
+            "ifOperStatus,ifSpeed,ifPhysAddress,ifInOctets_rate,"
+            "ifOutOctets_rate,ifInErrors_delta,ifOutErrors_delta"
         )
         data = self._request("GET", f"/devices/{device_id}/ports?columns={columns}")
         return [item for item in data.get("ports", []) if isinstance(item, dict)]

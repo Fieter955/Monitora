@@ -15,6 +15,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
 from db.base import Base
+from models.credential import CredentialProfile  # noqa: F401
+from models.location import Location  # noqa: F401
 from models.user import utcnow
 
 

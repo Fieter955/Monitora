@@ -1,9 +1,16 @@
+import subprocess
+import sys
+from pathlib import Path
+
+import httpx
+import pytest
 from sqlalchemy import select
 
 from core.security import decrypt_credentials, encrypt_credentials
 from db.session import SessionLocal
 from models.device import Device
 from models.network import DeviceObservation, PortExpectation, PortExpectationMode
+from services.librenms import LibreNMSClient, LibreNMSUnavailable
 from services.network_sync import device_health, sync_all, sync_network_device
 from services.probes import ProbeResult
 
@@ -349,3 +356,94 @@ def test_rtsp_url_rejects_embedded_credentials(admin_client):
     )
 
     assert response.status_code == 422
+
+
+def test_librenms_get_ports_uses_valid_columns():
+    captured: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["path"] = request.url.path
+        captured["columns"] = request.url.params.get("columns", "")
+        return httpx.Response(
+            200,
+            json={"status": "ok", "ports": [{"port_id": 1, "ifName": "eth0"}]},
+        )
+
+    client = LibreNMSClient(base_url="http://librenms.test", api_token="test-token")
+    client._client = httpx.Client(transport=httpx.MockTransport(handler))
+
+    ports = client.get_ports(1)
+
+    assert ports == [{"port_id": 1, "ifName": "eth0"}]
+    assert captured["path"] == "/api/v0/devices/1/ports"
+    columns = str(captured["columns"]).split(",")
+    assert columns == [
+        "port_id",
+        "device_id",
+        "ifIndex",
+        "ifName",
+        "ifDescr",
+        "ifAlias",
+        "ifAdminStatus",
+        "ifOperStatus",
+        "ifSpeed",
+        "ifPhysAddress",
+        "ifInOctets_rate",
+        "ifOutOctets_rate",
+        "ifInErrors_delta",
+        "ifOutErrors_delta",
+    ]
+    assert "ifHighSpeed" not in columns
+    assert "ifInDiscards_delta" not in columns
+    assert "ifOutDiscards_delta" not in columns
+
+
+def test_librenms_request_surfaces_error_message():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            400,
+            json={"status": "error", "message": "Invalid columns: ifHighSpeed"},
+        )
+
+    client = LibreNMSClient(base_url="http://librenms.test", api_token="test-token")
+    client._client = httpx.Client(transport=httpx.MockTransport(handler))
+
+    with pytest.raises(LibreNMSUnavailable) as exc_info:
+        client.get_ports(1)
+
+    message = str(exc_info.value)
+    assert "HTTP 400" in message
+    assert "Invalid columns: ifHighSpeed" in message
+
+
+def test_librenms_add_device_reuses_existing_device_id():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path == "/api/v0/devices/12.12.12.2":
+            return httpx.Response(200, json={"status": "ok", "devices": [{"device_id": 1}]})
+        raise AssertionError(f"Unexpected request: {request.method} {request.url}")
+
+    client = LibreNMSClient(base_url="http://librenms.test", api_token="test-token")
+    client._client = httpx.Client(transport=httpx.MockTransport(handler))
+
+    device_id = client.add_device(
+        "12.12.12.2",
+        "Mikrotik Staff",
+        "Ruang Server",
+        {"kind": "snmp_v2c", "community": "mikrotik_monitora"},
+    )
+    assert device_id == 1
+
+
+def test_network_worker_import_registers_foreign_key_tables():
+    backend_dir = Path(__file__).resolve().parents[1]
+    script = (
+        "import network_worker; "
+        "from db.base import Base; "
+        "tables = {t.name for t in Base.metadata.sorted_tables}; "
+        "assert {'devices', 'locations', 'credential_profiles'} <= tables, tables"
+    )
+    subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=backend_dir,
+        check=True,
+    )

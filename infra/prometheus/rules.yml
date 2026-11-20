@@ -11,7 +11,7 @@ groups:
           description: "Prometheus gagal mengambil metrik selama lebih dari 1 menit."
 
       - alert: PenggunaanCPUtinggi
-        expr: (100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 80) or (100 - (avg by(instance) (rate(windows_cpu_time_total{mode="idle"}[2m])) * 100) > 80)
+        expr: (100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 80) or (100 - (avg by(instance) (rate(windows_cpu_time_total{mode="idle"}[2m])) * 100) > 80) or (avg by(instance, device_id, device_name) (hrProcessorLoad) > 80)
         for: 2m
         labels:
           severity: warning
@@ -20,7 +20,7 @@ groups:
           description: "Penggunaan CPU tinggi. Periksa proses aktif sebelum mengganggu performa server."
 
       - alert: PenggunaanCPUKritis
-        expr: (100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 95) or (100 - (avg by(instance) (rate(windows_cpu_time_total{mode="idle"}[2m])) * 100) > 95)
+        expr: (100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100) > 95) or (100 - (avg by(instance) (rate(windows_cpu_time_total{mode="idle"}[2m])) * 100) > 95) or (avg by(instance, device_id, device_name) (hrProcessorLoad) > 95)
         for: 1m
         labels:
           severity: critical
@@ -29,7 +29,7 @@ groups:
           description: "Kapasitas CPU hampir habis, segera periksa dan hentikan proses yang membebani sistem."
 
       - alert: PenggunaanMemoriTinggi
-        expr: (100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 85) or (100 * (1 - windows_memory_available_bytes / windows_cs_physical_memory_bytes) > 85)
+        expr: (100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 85) or (100 * (1 - windows_memory_available_bytes / windows_cs_physical_memory_bytes) > 85) or (max by(instance, device_id, device_name) (100 * hrStorageUsed{hrStorageType="1.3.6.1.2.1.25.2.1.2"} / (hrStorageSize{hrStorageType="1.3.6.1.2.1.25.2.1.2"} > 0)) > 85)
         for: 2m
         labels:
           severity: warning
@@ -38,7 +38,7 @@ groups:
           description: "Ketersediaan RAM rendah. Pantau konsumsi memori layanan."
 
       - alert: PenggunaanMemoriKritis
-        expr: (100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 95) or (100 * (1 - windows_memory_available_bytes / windows_cs_physical_memory_bytes) > 95)
+        expr: (100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 95) or (100 * (1 - windows_memory_available_bytes / windows_cs_physical_memory_bytes) > 95) or (max by(instance, device_id, device_name) (100 * hrStorageUsed{hrStorageType="1.3.6.1.2.1.25.2.1.2"} / (hrStorageSize{hrStorageType="1.3.6.1.2.1.25.2.1.2"} > 0)) > 95)
         for: 1m
         labels:
           severity: critical
